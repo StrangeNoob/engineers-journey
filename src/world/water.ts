@@ -1,12 +1,13 @@
 import * as THREE from "three";
-import { loadGLTF, toonify, fitToGround } from "./assets";
+import { loadGLTF, toonify, fitToGround, fitToHeight } from "./assets";
 import { RIVER_POINTS } from "../data/world";
 
-async function placeOnce(scene: THREE.Scene, name: string, x: number, z: number, footprint: number, ry = 0): Promise<void> {
+// fountain/well are sized by real-world HEIGHT (metres) for human scale
+async function placeOnce(scene: THREE.Scene, name: string, x: number, z: number, height: number, ry = 0): Promise<void> {
   const g = await loadGLTF(name);
   const m = (g.scene as unknown as THREE.Group).clone(true);
   toonify(m);
-  fitToGround(m, footprint);
+  fitToHeight(m, height);
   m.position.set(x, 0.02, z);
   m.rotation.y = ry;
   scene.add(m);
@@ -24,11 +25,11 @@ export async function buildWater(scene: THREE.Scene): Promise<void> {
     const p = curve.getPoint(t), tan = curve.getTangent(t);
     const m = (tile.scene as unknown as THREE.Group).clone(true);
     toonify(m);
-    fitToGround(m, 5);
+    fitToGround(m, 4); // ~4 m wide brook
     m.position.set(p.x, 0.01, p.z);
     m.rotation.y = Math.atan2(tan.x, tan.z);
     scene.add(m);
   }
-  await placeOnce(scene, "the-fountain", -2, 7, 5);
-  await placeOnce(scene, "well", -13, 9, 2.4);
+  await placeOnce(scene, "the-fountain", -2, 7, 3.2); // ~3 m fountain
+  await placeOnce(scene, "well", -13, 9, 3);          // ~3 m well
 }

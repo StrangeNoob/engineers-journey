@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { loadGLTF, toonify, fitToGround } from "./assets";
+import { loadGLTF, toonify, fitToHeight } from "./assets";
 import { STOP_PLACEMENTS, ARGONATH, type Placement } from "../data/world";
 
 export interface PlacedStop {
@@ -43,7 +43,7 @@ export function placeLandmarks(scene: THREE.Scene): LandmarkRegistry {
       .then((g) => {
         const root = g.scene as unknown as THREE.Group;
         toonify(root);
-        fitToGround(root, p.footprint);
+        fitToHeight(root, p.height); // scale by real-world height (human-relative)
         root.position.x = p.x; root.position.z = p.z;
         root.position.y -= p.sink;
         root.rotation.y = THREE.MathUtils.degToRad(p.facingDeg);

@@ -49,3 +49,18 @@ export function fitToGround(obj: THREE.Object3D, footprint: number): void {
   obj.scale.multiplyScalar(k);
   obj.position.y -= box.min.y * k;
 }
+
+/**
+ * Uniform-scale an object to a real-world HEIGHT (metres; 1 unit = 1 m, Gandalf ≈ 1.9 m)
+ * and sit its base on y=0. Returns the resulting world-space size so callers can derive a
+ * footprint/collider. This is the primary sizing primitive — it keeps the world on a
+ * consistent human scale (a person's height controls how tall everything reads).
+ */
+export function fitToHeight(obj: THREE.Object3D, height: number): THREE.Vector3 {
+  const box = new THREE.Box3().setFromObject(obj);
+  const size = new THREE.Vector3(); box.getSize(size);
+  const k = height / (size.y || 1);
+  obj.scale.multiplyScalar(k);
+  obj.position.y -= box.min.y * k;
+  return size.multiplyScalar(k);
+}

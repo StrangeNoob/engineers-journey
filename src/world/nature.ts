@@ -56,7 +56,7 @@ async function instance(scene: THREE.Scene, name: string, count: number, fit: nu
 export async function scatterNature(scene: THREE.Scene, quality: Quality): Promise<void> {
   const per = Math.floor(quality.treeCount / 3);
   for (const name of ["mallorn-tree-1", "mallorn-tree-2", "mallorn-tree-3"]) {
-    await instance(scene, name, per, 7 + rnd() * 2, (_, d) => {
+    await instance(scene, name, per, 13 + rnd() * 4, (_, d) => { // mallorns ~10–19 m tall
       const a = rnd() * 6.283, r = 30 + rnd() * 210;
       const x = Math.cos(a) * r, z = Math.sin(a) * r;
       if (nearAStop(x, z, 16)) return false;
@@ -65,13 +65,13 @@ export async function scatterNature(scene: THREE.Scene, quality: Quality): Promi
       return true;
     });
   }
-  await instance(scene, "grass-tuft", quality.grassCount, 0.6, (_, d) => {
+  await instance(scene, "grass-tuft", quality.grassCount, 0.5, (_, d) => { // ~knee-high tufts
     const a = rnd() * 6.283, r = Math.sqrt(rnd()) * 120;
     d.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
     d.rotation.y = rnd() * 6.283; d.scale.setScalar(0.7 + rnd() * 0.8);
     return true;
   });
-  await instance(scene, "mountain-backdrop", 14, 40, (_, d) => {
+  await instance(scene, "mountain-backdrop", 14, 110, (_, d) => { // towering, distant
     const a = rnd() * 6.283, r = 230 + rnd() * 70;
     d.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
     d.rotation.y = rnd() * 6.283; d.scale.setScalar(1 + rnd() * 0.8);

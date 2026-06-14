@@ -5,20 +5,23 @@ export interface Placement {
   id: string;       // matches a STOP id, or "argonath"
   x: number; z: number;
   facingDeg: number; // yaw in degrees (0 faces +z/south)
-  footprint: number; // fit width in world units
-  sink: number;      // tuck base under ground
+  height: number;    // real-world height in metres (1 unit = 1 m; Gandalf ≈ 1.9 m) — controls visual scale
+  footprint: number; // approx ground width in metres — used for the proximity collider + prompt anchor
+  sink: number;      // tuck base under ground (metres)
 }
 
+// Heights are human-relative: a hobbit-hole is a touch over twice Gandalf's height; Edoras a
+// great hall; Isengard a tower; Minas Tirith a tiered citadel climbing a peak.
 export const STOP_PLACEMENTS: Placement[] = [
-  { id: "shire",    x: -60, z: 55,  facingDeg: 30,  footprint: 11, sink: 0.1 },
-  { id: "bywater",  x: -52, z: 12,  facingDeg: 80,  footprint: 11, sink: 0.1 },
-  { id: "bree",     x: -8,  z: 4,   facingDeg: 120, footprint: 12, sink: 0.1 },
-  { id: "edoras",   x: 6,   z: -44, facingDeg: 160, footprint: 13, sink: 0.1 },
-  { id: "isengard", x: 56,  z: 16,  facingDeg: 230, footprint: 12, sink: 0.2 },
-  { id: "minas",    x: 74,  z: -52, facingDeg: 200, footprint: 16, sink: 0.4 },
+  { id: "shire",    x: -60, z: 55,  facingDeg: 30,  height: 5,  footprint: 13, sink: 0.15 },
+  { id: "bywater",  x: -52, z: 12,  facingDeg: 80,  height: 7,  footprint: 12, sink: 0.15 },
+  { id: "bree",     x: -8,  z: 4,   facingDeg: 120, height: 9,  footprint: 13, sink: 0.15 },
+  { id: "edoras",   x: 6,   z: -44, facingDeg: 160, height: 13, footprint: 16, sink: 0.15 },
+  { id: "isengard", x: 56,  z: 16,  facingDeg: 230, height: 28, footprint: 14, sink: 0.2 },
+  { id: "minas",    x: 74,  z: -52, facingDeg: 200, height: 45, footprint: 30, sink: 0.5 },
 ];
 
-export const ARGONATH: Placement = { id: "argonath", x: 34, z: -8, facingDeg: 180, footprint: 14, sink: 0 };
+export const ARGONATH: Placement = { id: "argonath", x: 34, z: -8, facingDeg: 180, height: 34, footprint: 16, sink: 0 };
 
 /** Road control points, in journey order (Argonath is a waypoint the road passes). */
 export const ROAD_POINTS: [number, number][] = [
