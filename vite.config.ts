@@ -15,7 +15,7 @@ export default defineConfig({
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith("/assets/") || url.pathname.startsWith("/draco/"),
-            handler: "CacheFirst",
+            handler: "StaleWhileRevalidate",
             options: { cacheName: "world-assets", expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 90 } },
           },
         ],

@@ -81,7 +81,7 @@ The tone: warm, storybook, unhurried — "Gandalf remembering his old tales."
 
 ## 6. Project structure
 
-```
+```text
 src/
   main.ts                  # bootstrap: engine + world + player + ui, start loop
   engine/
@@ -264,7 +264,7 @@ Cloudflare Pages URL.
 - **Audio** (ambient music, footsteps): nice-to-have, **deferred** (Phase 2 polish, optional).
 - **Fast-travel** from the map: included as Phase-2 optional.
 - **Terrain authoring** (heightmap image vs modeled): decided at Phase-2 start; slice uses simple ground.
-- **Git:** repo is not yet initialized; will `git init` + commit before/with implementation.
+- **Repo:** the Vite + TS project lives in this git repository; Phase 1 is implemented on a feature branch.
 
 ## 12. Out of scope (v1)
 Combat, NPC dialogue, multiplayer, accounts, level editor, Next.js/SSR, procedural water shaders,

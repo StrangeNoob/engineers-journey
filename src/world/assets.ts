@@ -9,7 +9,11 @@ loader.setDRACOLoader(draco);
 
 const cache = new Map<string, Promise<GLTF>>();
 export function loadGLTF(name: string): Promise<GLTF> {
-  if (!cache.has(name)) cache.set(name, loader.loadAsync(`/assets/models/${name}.glb`));
+  if (!cache.has(name)) {
+    const p = loader.loadAsync(`/assets/models/${name}.glb`);
+    p.catch(() => cache.delete(name)); // evict a failed load so retries can recover
+    cache.set(name, p);
+  }
   return cache.get(name)!;
 }
 

@@ -32,7 +32,9 @@ export function mountTouchControls(input: Input): void {
   let lid = -1, lx = 0, ly = 0;
   addEventListener("pointerdown", (e) => { if (e.clientX > innerWidth / 2 && lid === -1) { lid = e.pointerId; lx = e.clientX; ly = e.clientY; } });
   addEventListener("pointermove", (e) => { if (e.pointerId === lid) { input.addLook(e.clientX - lx, e.clientY - ly); lx = e.clientX; ly = e.clientY; } });
-  addEventListener("pointerup", (e) => { if (e.pointerId === lid) lid = -1; });
+  const endLook = (e: PointerEvent) => { if (e.pointerId === lid) lid = -1; };
+  addEventListener("pointerup", endLook);
+  addEventListener("pointercancel", endLook); // release if the gesture is interrupted
 
   // interact button
   const btn = el("position:fixed;right:26px;bottom:46px;z-index:7;padding:14px 20px;border-radius:999px;background:#b03a48;color:#fff;border:none;font:14px 'Iowan Old Style',Georgia,serif");

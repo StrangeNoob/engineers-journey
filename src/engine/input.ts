@@ -30,11 +30,13 @@ export class Input {
     addEventListener("keydown", (e) => {
       this.keys.add(e.code);
       if (e.code === "ShiftLeft" || e.code === "ShiftRight") this.state.run = true;
-      if (e.code === "KeyE") this.pendingInteract = true;
+      if (e.code === "KeyE" && !e.repeat) this.pendingInteract = true; // ignore auto-repeat
     });
     addEventListener("keyup", (e) => {
       this.keys.delete(e.code);
-      if (e.code === "ShiftLeft" || e.code === "ShiftRight") this.state.run = false;
+      // keep running if the other Shift is still held
+      if (e.code === "ShiftLeft" || e.code === "ShiftRight")
+        this.state.run = this.keys.has("ShiftLeft") || this.keys.has("ShiftRight");
     });
     dom.addEventListener("pointerdown", (e) => { if (e.button === 0) this.dragging = true; });
     addEventListener("pointerup", () => { this.dragging = false; });

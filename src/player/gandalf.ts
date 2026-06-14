@@ -44,10 +44,12 @@ export class Gandalf {
     mesh.position.y -= box.min.y * k;
     this.root.add(mesh);
 
+    const walkClip = walk.animations[0], runClip = run.animations[0];
+    if (!walkClip || !runClip) throw new Error("Gandalf rig is missing walk/run animation clips");
     this.mixer = new THREE.AnimationMixer(mesh);
     // bone names match across rigs, so the run clip plays on this mixer.
-    this.actions.walk = this.mixer.clipAction(walk.animations[0]);
-    this.actions.run = this.mixer.clipAction(run.animations[0]);
+    this.actions.walk = this.mixer.clipAction(walkClip);
+    this.actions.run = this.mixer.clipAction(runClip);
     this.actions.walk.play(); this.actions.walk.weight = 1; // base layer (frozen when idle)
     this.actions.run.play(); this.actions.run.weight = 0;
   }
