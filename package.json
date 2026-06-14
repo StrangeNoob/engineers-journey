@@ -1,0 +1,22 @@
+{
+  "name": "engineers-journey",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "An Engineer's Journey — a playable Middle-earth portfolio (Gandalf the Grey). Prateek Kumar Mohanty.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "optimize": "bash scripts/optimize-glb.sh"
+  },
+  "devDependencies": {
+    "@types/three": "^0.160.0",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.0"
+  },
+  "dependencies": {
+    "three": "^0.160.0"
+  }
+}

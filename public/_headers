@@ -1,0 +1,6 @@
+# Cloudflare Pages headers — long-lived immutable caching for static assets.
+# Vite emits content-hashed JS/CSS into /assets; GLB/PNG models are versioned by path.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+/draco/*
+  Cache-Control: public, max-age=31536000, immutable

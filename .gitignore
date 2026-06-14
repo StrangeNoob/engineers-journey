@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+.vite/
+# raw, pre-optimized source models live elsewhere; only optimized GLBs are committed
+*.raw.glb
