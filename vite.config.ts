@@ -1,13 +1,33 @@
 import { defineConfig } from "vite";
+import { VitePWA } from "vite-plugin-pwa";
 
-// Static SPA for Cloudflare Pages. Assets in /public are served as-is; large GLBs
-// get long-lived immutable caching via _headers (see public/_headers).
 export default defineConfig({
   base: "/",
-  build: {
-    target: "es2022",
-    sourcemap: false,
-    assetsInlineLimit: 0, // never inline GLB/PNG — keep them cacheable files
-  },
+  build: { target: "es2022", sourcemap: false, assetsInlineLimit: 0 },
   server: { host: true },
+  plugins: [
+    VitePWA({
+      registerType: "autoUpdate",
+      includeAssets: ["assets/models/*.glb", "assets/img/*.png", "draco/*"],
+      workbox: {
+        globPatterns: ["**/*.{js,css,html}"],
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith("/assets/") || url.pathname.startsWith("/draco/"),
+            handler: "StaleWhileRevalidate",
+            options: { cacheName: "world-assets", expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 90 } },
+          },
+        ],
+      },
+      manifest: {
+        name: "An Engineer's Journey",
+        short_name: "Journey",
+        theme_color: "#e7decb",
+        background_color: "#cdd6d3",
+        display: "standalone",
+        icons: [],
+      },
+    }),
+  ],
 });
