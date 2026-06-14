@@ -48,7 +48,7 @@ export class Gandalf {
     // bone names match across rigs, so the run clip plays on this mixer.
     this.actions.walk = this.mixer.clipAction(walk.animations[0]);
     this.actions.run = this.mixer.clipAction(run.animations[0]);
-    this.actions.walk.play(); this.actions.walk.weight = 0;
+    this.actions.walk.play(); this.actions.walk.weight = 1; // base layer (frozen when idle)
     this.actions.run.play(); this.actions.run.weight = 0;
   }
 
@@ -63,10 +63,11 @@ export class Gandalf {
 
     const gait = pickGait(speed, input.run);
     if (gait !== this.current) this.current = gait;
-    // crossfade weights toward the active gait
-    const tgt = { walk: gait === "walk" ? 1 : 0, run: gait === "run" ? 1 : 0 };
-    this.actions.walk.weight += (tgt.walk - this.actions.walk.weight) * Math.min(1, dt * 10);
-    this.actions.run.weight += (tgt.run - this.actions.run.weight) * Math.min(1, dt * 10);
+    // Idle: freeze the walk clip (arms at sides) instead of falling back to the T-pose.
+    // Walk is the base layer (weight 1); running blends the run clip over it.
+    this.actions.walk.setEffectiveTimeScale(gait === "idle" ? 0 : 1);
+    const wRun = gait === "run" ? 1 : 0;
+    this.actions.run.weight += (wRun - this.actions.run.weight) * Math.min(1, dt * 10);
     this.mixer.update(dt);
     return speed;
   }
