@@ -44,7 +44,7 @@ export class Input {
   }
 
   /** touch joystick sets axes directly (-1..1); pass null to release. */
-  setTouchMove(axes: MoveAxes | null, run = false) { this.touchMove = axes; if (axes) this.state.run = run; }
+  setTouchMove(axes: MoveAxes | null, run = false) { this.touchMove = axes; this.state.run = axes ? run : false; }
   /** touch look-drag adds deltas. */
   addLook(dx: number, dy: number) { this.state.lookDX += dx; this.state.lookDY += dy; }
   /** touch interact button. */

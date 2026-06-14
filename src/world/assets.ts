@@ -26,6 +26,7 @@ export function toonify(root: THREE.Object3D): THREE.Object3D {
     const m = o as THREE.Mesh;
     if (!m.isMesh) return;
     m.castShadow = m.receiveShadow = true;
+    if (Array.isArray(m.material)) return; // multi-material meshes: leave as-is (none in current assets)
     const mat = m.material as THREE.MeshStandardMaterial;
     m.material = new THREE.MeshToonMaterial({
       map: mat.map ?? null,

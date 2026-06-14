@@ -16,7 +16,7 @@ export default defineConfig({
           {
             urlPattern: ({ url }) => url.pathname.startsWith("/assets/") || url.pathname.startsWith("/draco/"),
             handler: "CacheFirst",
-            options: { cacheName: "world-assets", expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 90 } },
+            options: { cacheName: "world-assets", expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 90 } },
           },
         ],
       },

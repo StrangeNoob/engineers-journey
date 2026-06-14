@@ -38,12 +38,13 @@ hud.set(journal.count, journal.total);
   gandalf.root.position.set(0, 0, 4);
   scene.add(gandalf.root);
   const shire = await placeShire(scene);
-  const shireStop = STOPS.find((s) => s.id === "shire")!;
+  const shireStop = STOPS.find((s) => s.id === "shire");
+  if (!shireStop) throw new Error('Missing "shire" stop in career data');
   const interaction = new Interaction(shire, shireStop, journal, () => hud.set(journal.count, journal.total));
 
   startLoop((dt) => {
     input.beginFrame();
-    cam.update(gandalf.root.position, input);
+    cam.update(gandalf.root.position, input, dt);
     gandalf.update(dt, input.state, cam.yawAngle);
     interaction.update(gandalf.root.position, cam.camera, input);
     input.endFrame();

@@ -2,7 +2,10 @@ const KEY = "ej.visited";
 export class Journal {
   private visited = new Set<string>();
   constructor(private readonly all: string[]) {
-    try { JSON.parse(localStorage.getItem(KEY) ?? "[]").forEach((id: string) => this.visited.add(id)); } catch { /* ignore */ }
+    try {
+      const saved = JSON.parse(localStorage.getItem(KEY) ?? "[]");
+      if (Array.isArray(saved)) saved.forEach((id: string) => this.visited.add(id));
+    } catch { /* ignore */ }
   }
   recall(id: string): void { this.visited.add(id); this.save(); }
   isVisited(id: string): boolean { return this.visited.has(id); }

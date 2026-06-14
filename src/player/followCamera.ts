@@ -11,7 +11,7 @@ export class FollowCamera {
   get yawAngle(): number { return this.yaw; }
 
   /** Consume look deltas, orbit, and trail the target. Call once per frame. */
-  update(target: THREE.Vector3, input: Input): void {
+  update(target: THREE.Vector3, input: Input, dt: number): void {
     this.yaw -= input.state.lookDX * 0.0035;
     this.pitch = THREE.MathUtils.clamp(this.pitch - input.state.lookDY * 0.0035, 0.05, 1.2);
     const h = Math.sin(this.pitch) * this.dist;
@@ -21,7 +21,8 @@ export class FollowCamera {
       target.y + 1.6 + h,
       target.z + Math.cos(this.yaw) * r,
     );
-    this.camera.position.lerp(desired, 0.18);
+    // frame-rate-independent smoothing (≈0.18 per frame at 60fps)
+    this.camera.position.lerp(desired, 1 - Math.exp(-dt * 12));
     this.camera.lookAt(target.x, target.y + 1.4, target.z);
   }
 
