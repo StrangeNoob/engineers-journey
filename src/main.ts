@@ -1,118 +1,58 @@
-// Bootstrap — minimal scene to verify the toolchain (Vite + TS + Three + Draco + asset load).
-// NOT the game yet: the player controller, world, tales, and HUD come with the Phase 1 plan.
-import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
-import { STOPS } from "./data/career";
 import "./styles/main.css";
+import { STOPS } from "./data/career";
+import { createRenderer } from "./engine/renderer";
+import { createScene } from "./engine/scene";
+import { startLoop } from "./engine/loop";
+import { Input } from "./engine/input";
+import { createGround } from "./world/ground";
+import { placeShire } from "./world/landmarks";
+import { Gandalf } from "./player/gandalf";
+import { FollowCamera } from "./player/followCamera";
+import { Journal } from "./systems/journal";
+import { Interaction } from "./systems/interaction";
+import { Hud } from "./ui/hud";
+import { mountTouchControls } from "./ui/touchControls";
+import { showBoot, hideBoot } from "./ui/loader";
 
 const app = document.getElementById("app")!;
-const boot = document.createElement("div");
-boot.id = "boot";
-boot.innerHTML = `<div><div class="ring"></div><div class="lab">Mapping the realm…</div></div>`;
-document.body.appendChild(boot);
+const boot = showBoot();
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.setSize(innerWidth, innerHeight);
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const renderer = createRenderer();
 app.appendChild(renderer.domElement);
+renderer.domElement.style.touchAction = "none";
+const scene = createScene();
+scene.add(createGround());
 
-const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0xe7decb, 30, 120);
+const input = new Input();
+input.attach(renderer.domElement);
+mountTouchControls(input);
 
-const camera = new THREE.PerspectiveCamera(46, innerWidth / innerHeight, 0.1, 600);
-camera.position.set(10, 8, 14);
+const cam = new FollowCamera();
+const gandalf = new Gandalf();
+const journal = new Journal(STOPS.map((s) => s.id));
+const hud = new Hud();
+hud.set(journal.count, journal.total);
 
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 2, 0);
-controls.enableDamping = true;
-controls.maxPolarAngle = Math.PI * 0.49;
+(async () => {
+  await gandalf.load();
+  gandalf.root.position.set(0, 0, 4);
+  scene.add(gandalf.root);
+  const shire = await placeShire(scene);
+  const shireStop = STOPS.find((s) => s.id === "shire")!;
+  const interaction = new Interaction(shire, shireStop, journal, () => hud.set(journal.count, journal.total));
 
-// sky gradient dome
-scene.add(
-  new THREE.Mesh(
-    new THREE.SphereGeometry(300, 32, 16),
-    new THREE.ShaderMaterial({
-      side: THREE.BackSide,
-      uniforms: { top: { value: new THREE.Color(0xa9bcc6) }, bot: { value: new THREE.Color(0xe7decb) } },
-      vertexShader: `varying float h;void main(){h=normalize(position).y;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-      fragmentShader: `varying float h;uniform vec3 top,bot;void main(){gl_FragColor=vec4(mix(bot,top,clamp(h*1.1+.25,0.,1.)),1.);}`,
-    }),
-  ),
-);
-
-const sun = new THREE.DirectionalLight(0xffe7bf, 2.0);
-sun.position.set(-20, 30, 16);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-scene.add(sun, new THREE.HemisphereLight(0xbcd0dc, 0x65763f, 1.0), new THREE.AmbientLight(0xf1e9d2, 0.3));
-
-const ground = new THREE.Mesh(
-  new THREE.CircleGeometry(120, 64),
-  new THREE.MeshStandardMaterial({ color: 0x8a9c57, roughness: 1 }),
-);
-ground.rotation.x = -Math.PI / 2;
-ground.receiveShadow = true;
-scene.add(ground);
-
-// loaders (Draco decoder bundled under /public/draco)
-const draco = new DRACOLoader();
-draco.setDecoderPath("/draco/");
-const gltf = new GLTFLoader();
-gltf.setDRACOLoader(draco);
-
-// 3-step toon ramp for cohesive shading
-const ramp = (() => {
-  const t = new THREE.DataTexture(new Uint8Array([90, 90, 90, 255, 175, 175, 175, 255, 255, 255, 255, 255]), 3, 1);
-  t.needsUpdate = true;
-  t.minFilter = t.magFilter = THREE.NearestFilter;
-  return t;
-})();
-function toonify(root: THREE.Object3D) {
-  root.traverse((o) => {
-    const m = o as THREE.Mesh;
-    if (!m.isMesh) return;
-    m.castShadow = m.receiveShadow = true;
-    const mat = m.material as THREE.MeshStandardMaterial;
-    m.material = new THREE.MeshToonMaterial({ map: mat.map ?? null, color: mat.color?.clone() ?? new THREE.Color(0xcfc2a3), gradientMap: ramp });
+  startLoop((dt) => {
+    input.beginFrame();
+    cam.update(gandalf.root.position, input);
+    gandalf.update(dt, input.state, cam.yawAngle);
+    interaction.update(gandalf.root.position, cam.camera, input);
+    input.endFrame();
+    renderer.render(scene, cam.camera);
   });
-}
-
-// smoke-test: load the Shire landmark (first stop)
-gltf.load(
-  `/assets/models/${STOPS[0].model}.glb`,
-  (g) => {
-    toonify(g.scene);
-    const box = new THREE.Box3().setFromObject(g.scene);
-    const size = new THREE.Vector3();
-    box.getSize(size);
-    const k = 9 / Math.max(size.x, size.z);
-    g.scene.scale.setScalar(k);
-    g.scene.position.y = -box.min.y * k;
-    scene.add(g.scene);
-    boot.classList.add("gone");
-    console.info(`[engineers-journey] booted · ${STOPS.length} tales · loaded ${STOPS[0].model}`);
-  },
-  undefined,
-  (err) => {
-    console.error("asset load failed", err);
-    boot.querySelector(".lab")!.textContent = "Load error — see console";
-  },
-);
-
-function frame() {
-  requestAnimationFrame(frame);
-  controls.update();
-  renderer.render(scene, camera);
-}
-frame();
+  hideBoot(boot);
+})().catch((e) => { console.error(e); boot.querySelector(".lab")!.textContent = "Load error — see console"; });
 
 addEventListener("resize", () => {
-  camera.aspect = innerWidth / innerHeight;
-  camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  cam.resize();
 });
