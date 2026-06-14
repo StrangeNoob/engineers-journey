@@ -32,7 +32,9 @@ async function instance(scene: THREE.Scene, name: string, count: number, fit: nu
   const g = await loadGLTF(name);
   const src = firstMesh(g.scene);
   if (!src) return;
-  const box = new THREE.Box3().setFromObject(src); const size = new THREE.Vector3(); box.getSize(size);
+  src.geometry.computeBoundingBox();
+  const bb = src.geometry.boundingBox!;            // local geometry bbox (models are center-origin)
+  const size = new THREE.Vector3(); bb.getSize(size);
   const base = fit / (size.y || 1);
   const inst = new THREE.InstancedMesh(src.geometry, toonOf(src), count);
   inst.castShadow = true; inst.receiveShadow = true;
@@ -42,8 +44,10 @@ async function instance(scene: THREE.Scene, name: string, count: number, fit: nu
   while (n < count && guard < count * 40) {
     guard++;
     d.position.set(0, 0, 0); d.rotation.set(0, 0, 0); d.scale.setScalar(1);
-    if (!place(n, d)) continue;
-    d.scale.multiplyScalar(base);
+    if (!place(n, d)) continue;            // place sets x/z position, y-rotation, and a uniform scale
+    const s = d.scale.x * base;            // final uniform scale
+    d.scale.setScalar(s);
+    d.position.y = -bb.min.y * s;          // lift the base onto the ground (y=0)
     d.updateMatrix();
     inst.setMatrixAt(n++, d.matrix);
   }

@@ -27,7 +27,8 @@ export async function buildRoad(scene: THREE.Scene): Promise<void> {
   );
   const len = curve.getLength();
   const tile = await loadGLTF("road-straight");
-  const STEP = 4.6; // approximate tile length in world units after fit
+  const TILE_LEN = 6;     // fit the tile's long (X) axis to 6 m
+  const STEP = 5.2;       // < TILE_LEN so consecutive tiles overlap into a continuous road
   const n = Math.floor(len / STEP);
   for (let i = 0; i <= n; i++) {
     const t = i / n;
@@ -35,17 +36,17 @@ export async function buildRoad(scene: THREE.Scene): Promise<void> {
     const tan = curve.getTangent(t);
     const m = (tile.scene as unknown as THREE.Group).clone(true);
     toonify(m);
-    fitToGround(m, 5);
+    fitToGround(m, TILE_LEN);
     m.position.set(p.x, 0.03, p.z);
-    m.rotation.y = Math.atan2(tan.x, tan.z);
+    m.rotation.y = Math.atan2(-tan.z, tan.x); // align the tile's +X (its length) with the path
     scene.add(m);
   }
   const bridge = await loadGLTF("stone-bridge");
   const bm = (bridge.scene as unknown as THREE.Group).clone(true);
   toonify(bm);
-  fitToGround(bm, 6);
+  fitToGround(bm, 7);
   bm.position.set(BRIDGE_AT[0], 0.1, BRIDGE_AT[1]);
   const ct = curve.getTangent(0.65);
-  bm.rotation.y = Math.atan2(ct.x, ct.z) + Math.PI / 2;
+  bm.rotation.y = Math.atan2(-ct.z, ct.x); // bridge deck runs along the road
   scene.add(bm);
 }

@@ -18,16 +18,17 @@ export async function buildWater(scene: THREE.Scene): Promise<void> {
   const curve = new THREE.CatmullRomCurve3(RIVER_POINTS.map(([x, z]) => new THREE.Vector3(x, 0, z)));
   const tile = await loadGLTF("stream-straight");
   const len = curve.getLength();
-  const STEP = 4.6;
+  const TILE_LEN = 5;     // fit the tile's long (X) axis to 5 m
+  const STEP = 4.3;       // < TILE_LEN so consecutive tiles overlap into a continuous brook
   const n = Math.floor(len / STEP);
   for (let i = 0; i <= n; i++) {
     const t = i / n;
     const p = curve.getPoint(t), tan = curve.getTangent(t);
     const m = (tile.scene as unknown as THREE.Group).clone(true);
     toonify(m);
-    fitToGround(m, 4); // ~4 m wide brook
+    fitToGround(m, TILE_LEN);
     m.position.set(p.x, 0.01, p.z);
-    m.rotation.y = Math.atan2(tan.x, tan.z);
+    m.rotation.y = Math.atan2(-tan.z, tan.x); // align the tile's +X (its length) with the river
     scene.add(m);
   }
   await placeOnce(scene, "the-fountain", -2, 7, 3.2); // ~3 m fountain
