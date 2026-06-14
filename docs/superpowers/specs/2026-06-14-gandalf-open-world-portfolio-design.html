@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>An Engineer's Journey — Design Spec</title>
+<style>
+  :root{
+    --paper:#f4ecd8; --paper2:#efe6cf; --ink:#2e2a22; --soft:#6a6048;
+    --red:#b03a48; --green:#6f8147; --line:#d8cba8; --code-bg:#ece2c9;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:#cdd6d3;
+    background-image:radial-gradient(120% 90% at 50% -10%, #e9e0c8 0%, #cdd6d3 70%);
+    color:var(--ink); font:16px/1.7 "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    padding:40px 16px 120px;
+  }
+  .sheet{
+    max-width:860px; margin:0 auto; background:var(--paper);
+    border:1px solid var(--line); border-radius:10px;
+    box-shadow:0 18px 60px rgba(46,42,34,.18);
+    padding:56px clamp(22px,5vw,64px);
+  }
+  h1,h2,h3,h4{font-weight:600; line-height:1.2; color:var(--ink)}
+  h1{font-size:clamp(28px,5vw,42px); margin:0 0 .2em; letter-spacing:.01em}
+  h1+p{color:var(--soft); font-size:15px}
+  h2{font-size:24px; margin:1.9em 0 .5em; padding-bottom:.28em; border-bottom:2px solid var(--line)}
+  h3{font-size:18.5px; margin:1.5em 0 .35em; color:#5a4a32}
+  h4{font-size:16px; margin:1.2em 0 .3em; color:var(--soft)}
+  p,li{font-size:16px}
+  a{color:var(--red); text-decoration:none; border-bottom:1px solid rgba(176,58,72,.35)}
+  a:hover{border-bottom-color:var(--red)}
+  strong{color:#4a3f2a}
+  ul,ol{padding-left:1.3em} li{margin:.3em 0}
+  hr{border:none; border-top:1px solid var(--line); margin:2.4em 0}
+  blockquote{
+    margin:1.2em 0; padding:.6em 1.1em; background:var(--paper2);
+    border-left:4px solid var(--green); border-radius:0 6px 6px 0; color:#4a4334;
+  }
+  code{background:var(--code-bg); padding:.12em .4em; border-radius:4px; font:13.5px/1.5 "SF Mono",ui-monospace,Menlo,Consolas,monospace; color:#5a4a32}
+  pre{background:var(--code-bg); border:1px solid var(--line); border-radius:8px; padding:16px 18px; overflow:auto}
+  pre code{background:none; padding:0; color:#433a26}
+  table{border-collapse:collapse; width:100%; margin:1.1em 0; font-size:14.5px; overflow:hidden; border-radius:8px}
+  th,td{border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top}
+  thead th{background:#e6dcc0; font-weight:600; color:#4a3f2a}
+  tbody tr:nth-child(even){background:rgba(236,226,201,.45)}
+  .meta{text-align:center; color:var(--soft); font-size:12px; letter-spacing:.24em; text-transform:uppercase; margin-bottom:34px}
+  @media print{ body{background:#fff;padding:0} .sheet{box-shadow:none;border:none;max-width:none} }
+</style>
+</head>
+<body>
+  <article class="sheet">
+    <div class="meta">Design Specification · Prateek Kumar Mohanty</div>
+    <h1>Design Spec — &quot;An Engineer&#39;s Journey&quot;: A Playable Middle-earth Portfolio</h1>
+<p><strong>Date:</strong> 2026-06-14
+<strong>Owner:</strong> Prateek Kumar Mohanty
+<strong>Status:</strong> Design — awaiting review</p>
+<hr>
+<h2>1. Vision</h2>
+<p>A browser-based <strong>open-world game portfolio</strong>. The visitor plays <strong>Gandalf the Grey</strong>,
+free-roaming a stylized Middle-earth landscape. Six places dot the land — each one a
+chapter of Prateek&#39;s career. Walking up to a place and &quot;recalling its tale&quot; unfurls a
+<strong>scroll</strong> and opens a panel telling that story (role, results, stack, links). A journal
+(the illustrated map) tracks which tales you&#39;ve recalled. No forced order, no win-state —
+exploration with light tracking. It works on desktop and mobile.</p>
+<p>The tone: warm, storybook, unhurried — &quot;Gandalf remembering his old tales.&quot;</p>
+<hr>
+<h2>2. Goals &amp; non-goals</h2>
+<p><strong>Goals</strong></p>
+<ul>
+<li>A genuinely playable third-person character (walk/run, free-roam) that feels good.</li>
+<li>Six career &quot;tales&quot; surfaced diegetically via proximity → scroll → panel.</li>
+<li>One cohesive art style (the Kenney + ChatGPT→Meshy assets already produced).</li>
+<li>Fully playable on <strong>desktop and mobile</strong> from v1.</li>
+<li>Fast loading &amp; caching; 60 fps desktop, smooth on a mid phone.</li>
+<li>A non-game <strong>fallback path</strong> (plain résumé) for recruiters who won&#39;t play + for SEO/a11y.</li>
+</ul>
+<p><strong>Non-goals (YAGNI)</strong></p>
+<ul>
+<li>No combat, enemies, health, inventory, or quests beyond &quot;recall the tales.&quot;</li>
+<li>No NPCs with dialogue trees (ambient props only: wagon, campfire, birds).</li>
+<li>No multiplayer, no save accounts (local progress only).</li>
+<li>No Next.js / SSR (a canvas game can&#39;t be server-rendered; not needed — see §7.10).</li>
+<li>No procedural water shaders (rejected; use generated/flat water — §7.6).</li>
+</ul>
+<hr>
+<h2>3. Core experience loop</h2>
+<ol>
+<li>Land on the site → themed loader → spawn as Gandalf near the Shire.</li>
+<li>Free-roam: <strong>WASD/joystick</strong> to walk, hold to run; <strong>mouse-drag / right-thumb</strong> to look.</li>
+<li>Approach a landmark → a world-space prompt appears: <em>&quot;Press E · tap to recall this tale.&quot;</em></li>
+<li>Trigger it → the <strong>portfolio-scroll</strong> unfurls and a side <strong>panel</strong> slides in with the chapter.</li>
+<li>Close → keep roaming. The <strong>journal</strong> marks that tale recalled (n/6); the <strong>map (M)</strong> shows
+visited vs. unvisited with a gentle nudge toward the rest.</li>
+<li>Any order, no end-gate; recalling all six lights a small &quot;journey complete&quot; flourish +
+a hire-me/contact call-to-action (optional, non-blocking).</li>
+</ol>
+<hr>
+<h2>4. Decisions locked in brainstorming</h2>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Decision</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Control &amp; camera</td>
+<td>Third-person free-roam: WASD + mouse-look (desktop); on-screen joystick + drag-look (mobile)</td>
+</tr>
+<tr>
+<td>Tale trigger</td>
+<td>Proximity prompt → &quot;Press E / tap&quot; → <strong>portfolio-scroll</strong> unfurls → side panel</td>
+</tr>
+<tr>
+<td>Progression</td>
+<td>Light tracking, <strong>no forced arc</strong>; journal + illustrated map track visited; any order</td>
+</tr>
+<tr>
+<td>Mobile</td>
+<td><strong>Full game on mobile from day one</strong> (joystick + drag-look + responsive HUD)</td>
+</tr>
+<tr>
+<td>Stack</td>
+<td><strong>Vite + TypeScript + Three.js 0.160</strong>, kinematic controller (no physics engine)</td>
+</tr>
+<tr>
+<td>Hosting/caching</td>
+<td><strong>Cloudflare Pages</strong> + immutable hashed assets + Workbox service worker</td>
+</tr>
+<tr>
+<td>Build strategy</td>
+<td><strong>Vertical-slice-first</strong>, then full world</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>5. Tech stack &amp; deployment</h2>
+<ul>
+<li><strong>Vite + TypeScript + Three.js 0.160</strong> (matches existing prototypes/version).</li>
+<li>Loaders: <code>GLTFLoader</code>, <code>DRACOLoader</code>, <code>SkeletonUtils</code> (skinned clone), optional <code>KTX2Loader</code>.</li>
+<li>No physics engine — a <strong>kinematic character controller</strong> (raycast ground + simple collider
+push-out) is sufficient for a walking explorer. (Rapier reconsidered only if collisions
+prove inadequate; not in scope for v1.)</li>
+<li>Plain CSS for HUD/panels (no UI framework).</li>
+<li><strong>Deploy: Cloudflare Pages.</strong> Build output is static; assets served from <code>/public</code> (or
+imported via <code>?url</code> for content-hashing). Optional Cloudflare <strong>R2</strong> for assets later if
+payload grows — not needed at current ~10–20 MB optimized.</li>
+</ul>
+<hr>
+<h2>6. Project structure</h2>
+<pre><code>src/
+  main.ts                  # bootstrap: engine + world + player + ui, start loop
+  engine/
+    renderer.ts  scene.ts  loop.ts  resize.ts  quality.ts   # quality tiers (desktop/mobile)
+    input.ts                                                # unified keyboard/mouse/touch state
+  world/
+    assets.ts              # GLB loader: Draco + cache + toonify + LoadManager/progress
+    sky.ts  lights.ts  fog.ts
+    terrain.ts             # ground/heightfield mirroring the map layout
+    road.ts  water.ts      # winding road; lake/stream (generated or flat toon plane)
+    nature.ts              # InstancedMesh forests, rocks, mountain-backdrop
+    landmarks.ts           # place the 6 hero buildings + Argonath; build colliders
+    ambient.ts             # wagon, campfire, birds, shimmer
+  player/
+    gandalf.ts             # kinematic controller + animation state machine (idle/walk/run)
+    followCamera.ts        # spring-arm third-person camera + collision
+  systems/
+    interaction.ts         # proximity triggers, prompts, recall-tale flow
+    journal.ts             # progress state (visited set), persistence (localStorage)
+  ui/
+    hud.ts  prompt.ts  talePanel.ts  mapOverlay.ts  contactBar.ts  loader.ts  touchControls.ts
+  data/
+    career.ts              # the six stops (single source of content)
+  pwa/
+    sw.ts                  # Workbox precache + runtime caching
+public/assets/             # optimized, Draco-compressed GLBs (from optimize-glb.sh)
+index.html
+</code></pre>
+<p>Each module has one job and a clear interface (e.g., <code>gandalf.update(dt, input, terrain)</code>,
+<code>interaction.update(dt, gandalfPos)</code> → emits <code>onRecall(stopId)</code>).</p>
+<hr>
+<h2>7. System designs</h2>
+<h3>7.1 Asset pipeline &amp; loading</h3>
+<ul>
+<li>Batch-run <strong><code>scripts/optimize-glb.sh</code></strong> over every raw asset in <code>assets/gen/middle-earth/</code>
+(buildings 16–79 MB → ~1 MB; road/env already proven 16 MB → 0.25 MB) into <code>public/assets/</code>.
+Organic/foliage buildings floor ~100–150 k tris locally; acceptable (pure toon, no ink).
+Where possible re-export from Meshy with Remesh→low-poly for cleaner topology.</li>
+<li><code>assets.ts</code> wraps <code>GLTFLoader</code> + <code>DRACOLoader</code>, a <code>Map</code> cache, and <code>toonify()</code>
+(<code>MeshToonMaterial</code> + 3-step ramp, preserve map/color). Returns clones.</li>
+<li><strong>LoadManager</strong> drives the themed loader bar. <strong>Gate entry</strong> on a <em>core</em> set (Gandalf +
+terrain + spawn-area landmark). <strong>Lazy-load</strong> distant landmarks as Gandalf approaches
+(distance-based) so first paint is fast.</li>
+</ul>
+<h3>7.2 Character controller (<code>gandalf.ts</code>)</h3>
+<ul>
+<li>Kinematic capsule. Input → desired horizontal velocity in <strong>camera space</strong>; walk speed
+vs run speed (run on Shift / left-stick fully pushed). Smooth accel/decel.</li>
+<li><strong>Ground:</strong> raycast down to terrain each frame → set y to ground height; small gravity for
+steps/slopes.</li>
+<li><strong>Collisions:</strong> push-out against landmark colliders (cylinders/AABBs from <code>landmarks.ts</code>)<ul>
+<li>world bounds. Block walking through buildings/water.</li>
+</ul>
+</li>
+<li><strong>Animation state machine:</strong> <code>idle ↔ walk ↔ run</code> via <code>AnimationMixer</code> crossfades, driven by
+speed. Uses <code>gandalf.glb</code> (idle) + <code>gandalf_walking.glb</code> + <code>gandalf_running.glb</code> clips
+(retarget onto one skeleton, or load clips onto the shared rig).</li>
+<li>Faces movement direction (turn toward velocity).</li>
+</ul>
+<h3>7.3 Follow camera (<code>followCamera.ts</code>)</h3>
+<ul>
+<li>Spring-arm behind Gandalf; yaw/pitch from mouse-drag (desktop) / right-thumb drag (mobile).</li>
+<li><strong>Collision:</strong> raycast Gandalf→desired cam pos; pull in if blocked by terrain/buildings.</li>
+<li>Damped follow; auto-trails behind motion when the user isn&#39;t actively looking.</li>
+<li>Clamp pitch above ground; sensible min/max distance + FOV.</li>
+</ul>
+<h3>7.4 Interaction / tales (<code>interaction.ts</code> + <code>talePanel.ts</code>)</h3>
+<ul>
+<li>Each stop has a trigger radius. On enter → world-space <strong>prompt</strong> sprite over the landmark&#39;s
+scroll spot: <em>&quot;Press E · tap to recall this tale.&quot;</em></li>
+<li>On <strong>E / tap</strong>: play the <strong>portfolio-scroll</strong> reveal (the <code>portfolio-scroll.glb</code> scales/unfurls
+at the spot, or the panel itself is styled as an unrolling scroll) → open the <strong>side panel</strong>
+with chapter content (role, dates, headline result, bullets, stack chips, links).</li>
+<li>World stays live behind the panel (optional gentle slow-down). Esc / ✕ / walk-away closes;
+focus management for keyboard users. Recalling marks the tale in <code>journal</code>.</li>
+</ul>
+<h3>7.5 Journal &amp; map (<code>journal.ts</code> + <code>mapOverlay.ts</code>)</h3>
+<ul>
+<li><code>journal</code> holds the <code>visited</code> set, persisted to <code>localStorage</code>. Exposes <code>count</code>, <code>isVisited</code>.</li>
+<li>HUD shows <strong>&quot;Tales recalled: n/6.&quot;</strong> Press <strong>M</strong> (or tap a button) → overlay the <strong>illustrated
+map</strong> with six markers: visited = lit/colored, unvisited = dim; a live marker for Gandalf&#39;s
+position; gentle nudge (nearest unvisited shimmers / compass hint).</li>
+<li><strong>Fast-travel (optional, Phase 2):</strong> click a <em>visited</em> marker → fade-teleport Gandalf there.</li>
+</ul>
+<h3>7.6 World construction (<code>world/*</code>)</h3>
+<ul>
+<li>Terrain mirrors the <strong>map geography</strong>: Shire lowland (SW) rising to mountains (NE); Isengard
+to the east, Minas Tirith crowning the NE peaks. Heightfield or sculpted ground + fog.</li>
+<li><strong>Winding stone road</strong> along a Catmull-Rom spline using the optimized road tiles (or a road
+ribbon), threading all six places; <strong>stone bridge</strong> over the river.</li>
+<li><strong>Water:</strong> lake/streams from the generated water assets when ready; <strong>fallback = flat toon
+water plane</strong> (no custom shader — per the rejection of procedural water). Static is fine.</li>
+<li>Six landmarks placed per map positions (+ <strong>Argonath</strong> as a non-stop gateway). <strong>Instanced</strong>
+forests, rocks, <code>mountain-backdrop</code>. Ambient: <code>covered-wagon</code> on the road, <code>campfire-rest-point</code>,
+birds, subtle water shimmer.</li>
+</ul>
+<h3>7.7 Mobile / touch controls (<code>touchControls.ts</code>)</h3>
+<ul>
+<li><strong>Left-thumb virtual joystick</strong> = move; <strong>right-side drag</strong> = camera look; <strong>tap prompt button</strong>
+= recall tale; <strong>map button</strong> = journal. Same input bus as keyboard/mouse (controller reads
+one unified state).</li>
+<li>Responsive HUD; <code>touch-action:none</code> on canvas; detect touch via <code>matchMedia(&#39;(pointer:coarse)&#39;)</code>.</li>
+</ul>
+<h3>7.8 Performance &amp; quality tiers (<code>quality.ts</code>)</h3>
+<ul>
+<li>Tiers by device: <strong>desktop</strong> (full draw distance, shadows, dense grass) vs <strong>mobile</strong> (pixelRatio
+≤1.6, smaller/again fewer shadows, reduced instance counts, shorter fog/cull distance).</li>
+<li>Draco geometry; <strong>InstancedMesh</strong> vegetation; frustum culling; distance cull/LOD for landmarks;
+textures ≤1 K; single shadow-casting sun with tight frustum. Targets: 60 fps desktop, ≥30 mobile.</li>
+</ul>
+<h3>7.9 Accessibility, SEO &amp; fallback</h3>
+<ul>
+<li>A 3D game is inherently hard for a11y, so ship a <strong>first-class text fallback</strong>: a semantic,
+responsive <strong><code>/resume</code></strong> page (port <code>designs/resume.html</code>) with the full career — the
+accessible + SEO + &quot;I won&#39;t play, just show me&quot; path. A persistent <strong>&quot;Skip to résumé&quot;</strong> link.</li>
+<li>Honor <code>prefers-reduced-motion</code> (cut camera sway/auto-cam, instant transitions). Panels are
+keyboard-operable with focus management. Contact bar always reachable.</li>
+<li>SEO: static <code>&lt;title&gt;</code>/meta description, <strong>OpenGraph/Twitter</strong> tags using the <strong>illustrated map</strong>
+as the OG image, <code>Person</code> JSON-LD. (All achievable without SSR.)</li>
+</ul>
+<h3>7.10 Caching &amp; delivery</h3>
+<ul>
+<li><strong>Content-hashed, immutable assets</strong> (<code>Cache-Control: public, max-age=31536000, immutable</code>) —
+import GLBs via Vite <code>?url</code> so filenames are hashed; repeat visits load from browser cache.</li>
+<li><strong>Cloudflare Pages</strong> CDN caches at the edge for fast first load globally.</li>
+<li><strong>Workbox service worker</strong> (<code>pwa/sw.ts</code>) precaches the core world → instant repeat visits,
+offline-capable. (This — not Next.js — is the caching story.)</li>
+</ul>
+<hr>
+<h2>8. Content model (<code>data/career.ts</code>)</h2>
+<p>Each stop is one typed object: <code>{ id, locale, org, role, era, headline, bullets[], stack[], links[], model, worldPos, scrollPos }</code>. Source of truth for panels, journal, and map markers.</p>
+<table>
+<thead>
+<tr>
+<th>id</th>
+<th>Locale</th>
+<th>Company / role</th>
+<th>Era</th>
+<th>model</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>shire</td>
+<td>The Shire</td>
+<td>B.Tech IT · OURT</td>
+<td>2018–22</td>
+<td>shire-home</td>
+</tr>
+<tr>
+<td>bywater</td>
+<td>Bywater Mill</td>
+<td>SDE Intern · Milk Mantra</td>
+<td>2020–21</td>
+<td>bywater-mill</td>
+</tr>
+<tr>
+<td>bree</td>
+<td>Bree</td>
+<td>Product Developer · Aarna</td>
+<td>2021–22</td>
+<td>bree-inn</td>
+</tr>
+<tr>
+<td>edoras</td>
+<td>Edoras</td>
+<td>Product Lead · Frifty</td>
+<td>2022–23</td>
+<td>edoras-hall</td>
+</tr>
+<tr>
+<td>isengard</td>
+<td>Isengard</td>
+<td>Full Stack · Dextr Labs</td>
+<td>2023–24</td>
+<td>isengard-tower</td>
+</tr>
+<tr>
+<td>minas</td>
+<td>Minas Tirith</td>
+<td>SDE-II · Pathfndr (current)</td>
+<td>2025–</td>
+<td>minas-tirith</td>
+</tr>
+</tbody></table>
+<p>(Full bullet/stack content already drafted in <code>designs/design-14-portfolio.html</code> STOPS — reuse
+verbatim.) <strong>Argonath</strong> = decorative gateway landmark, not a stop. <strong>LinkedIn URL</strong> stays a
+<code>&lt;!-- LINKEDIN_URL TODO --&gt;</code> placeholder until Prateek supplies it.</p>
+<hr>
+<h2>9. Phasing</h2>
+<h3>Phase 1 — Vertical slice (prove the feel)</h3>
+<p>A small, self-contained playable proof — <strong>not</strong> the full map:</p>
+<ul>
+<li>Compact test terrain (gentle ground, fog, sky, light).</li>
+<li><strong>Gandalf</strong>: idle/walk/run, free-roam WASD + mouse-look <strong>and</strong> mobile joystick + drag-look.</li>
+<li>Third-person follow camera with collision.</li>
+<li><strong>One</strong> landmark (the Shire home) with the full <strong>proximity → scroll → panel</strong> flow, real content.</li>
+<li>Themed loader + minimal HUD (&quot;Tales recalled: 1/1&quot; placeholder).</li>
+<li>Deployed to <strong>Cloudflare Pages</strong> with immutable headers + a basic service worker.</li>
+</ul>
+<p><strong>Acceptance criteria (Phase 1):</strong> Gandalf walks/runs smoothly and animates correctly; camera
+follows without clipping; the Shire tale recalls via scroll+panel; <strong>playable on a real phone</strong>
+(joystick + look) and desktop; 60 fps desktop / smooth mobile; no console errors; live on a
+Cloudflare Pages URL.</p>
+<h3>Phase 2 — Full world</h3>
+<ul>
+<li>Full map-based terrain; all six landmarks + Argonath; winding road + bridge + water; instanced
+forests/mountains; ambient life.</li>
+<li>Journal + illustrated-map overlay (visited tracking, nudge, optional fast-travel).</li>
+<li>Quality tiers, full perf pass, reduced-motion, <code>/resume</code> fallback, SEO/OG, service-worker precache.</li>
+<li>&quot;Journey complete&quot; flourish + contact CTA when all six recalled.</li>
+</ul>
+<hr>
+<h2>10. Risks &amp; mitigations</h2>
+<ul>
+<li><strong>Mobile free-roam smoothness</strong> (the hard part) → the Phase-1 slice tests it <em>first</em>, on a real
+device, before building the world.</li>
+<li><strong>Asset weight</strong> (heavy raw GLBs) → batch optimizer + Draco + instancing + lazy load; re-export
+buildings remeshed where feasible.</li>
+<li><strong>Controller/camera feel</strong> → isolate <code>gandalf.ts</code>/<code>followCamera.ts</code> with tunable constants; iterate
+in the slice.</li>
+<li><strong>Collision tuning</strong> → simple cylinder/AABB colliders; start generous, refine.</li>
+</ul>
+<h2>11. Assumptions &amp; open items</h2>
+<ul>
+<li><strong>Water:</strong> prefer generated water assets; flat toon plane as fallback. Final choice deferred to
+Phase 2 build.</li>
+<li><strong>Audio</strong> (ambient music, footsteps): nice-to-have, <strong>deferred</strong> (Phase 2 polish, optional).</li>
+<li><strong>Fast-travel</strong> from the map: included as Phase-2 optional.</li>
+<li><strong>Terrain authoring</strong> (heightmap image vs modeled): decided at Phase-2 start; slice uses simple ground.</li>
+<li><strong>Git:</strong> repo is not yet initialized; will <code>git init</code> + commit before/with implementation.</li>
+</ul>
+<h2>12. Out of scope (v1)</h2>
+<p>Combat, NPC dialogue, multiplayer, accounts, level editor, Next.js/SSR, procedural water shaders,
+day/night cycle, weather.</p>
+
+
+  </article>
+</body>
+</html>
