@@ -35,7 +35,8 @@ export class FollowCamera {
     this.ray.far = want;
     if (obstacles.length) {
       const hit = this.ray.intersectObjects(obstacles, true)[0];
-      if (hit) desired.copy(this.eye).addScaledVector(this.dir, Math.max(2.5, hit.distance - 0.5));
+      // pull in to just before the obstacle; a small floor keeps the camera out of Gandalf's head
+      if (hit) desired.copy(this.eye).addScaledVector(this.dir, Math.max(1.2, hit.distance - 0.5));
     }
 
     // frame-rate-independent smoothing (≈0.18 per frame at 60fps)

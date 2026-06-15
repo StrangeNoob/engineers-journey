@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Batch-optimize every raw Middle-earth asset into public/assets/models/.
 # Format per line: "<srcRelPath>|<outName>|<ratio>|<tex>"
-set -uo pipefail
+set -euo pipefail
 SRC="../new_portfolio/designs/assets/gen/middle-earth"
 OUT="public/assets/models"
 OPT="scripts/optimize-glb.sh"
+[ -d "$SRC" ] || { echo "error: source dir not found: $SRC" >&2; exit 1; }
 mkdir -p "$OUT"
 items=(
   "buildings/argonath.glb|argonath|0.4|1024"
@@ -36,6 +37,7 @@ items=(
 for it in "${items[@]}"; do
   IFS='|' read -r src out ratio tex <<<"$it"
   [ -f "$OUT/$out.glb" ] && { echo "skip $out (exists)"; continue; }
+  [ -f "$SRC/$src" ] || { echo "error: missing source: $SRC/$src" >&2; exit 1; }
   bash "$OPT" "$SRC/$src" "$OUT/$out.glb" "$ratio" "$tex"
 done
 echo "=== done. sizes: ==="

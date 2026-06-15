@@ -86,7 +86,7 @@ export class Gandalf {
         const sm = o as THREE.SkinnedMesh;
         if (!sm.isSkinnedMesh) return;
         sm.computeBoundingBox();
-        box.union(smBox.copy(sm.boundingBox!).applyMatrix4(sm.matrixWorld));
+        if (sm.boundingBox) box.union(smBox.copy(sm.boundingBox).applyMatrix4(sm.matrixWorld));
       });
       return box;
     };

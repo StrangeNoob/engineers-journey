@@ -117,6 +117,7 @@ async function instance(scene: THREE.Scene, name: string, count: number, fit: nu
 
 /** Forests (mallorn variants) + grass + scattered rocks + distant mountain backdrops. */
 export async function scatterNature(scene: THREE.Scene, quality: Quality, colliders: { x: number; z: number; r: number }[] = []): Promise<void> {
+  treeBanks.length = 0; // reset so a re-scatter never leaves stale banks for cullTreesNearCamera
   const per = Math.floor(quality.treeCount / 3);
   for (const name of ["mallorn-tree-1", "mallorn-tree-2", "mallorn-tree-3"]) {
     await instance(scene, name, per, 13 + rnd() * 4, (_, d) => { // mallorns ~10–19 m tall

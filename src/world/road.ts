@@ -5,10 +5,21 @@ import { ROAD_POINTS, BRIDGE_AT } from "../data/world";
 type Pt = [number, number];
 type Collider = { x: number; z: number; r: number };
 
+// the road spline, shared by the bridge-axis calc and the tile layout
+const roadCurve = new THREE.CatmullRomCurve3(ROAD_POINTS.map(([x, z]) => new THREE.Vector3(x, 0, z)));
+
+// deck axis = the road's direction at the crossing (nearest curve sample to the bridge)
+function bridgeAxis(): { ux: number; uz: number } {
+  let bu = 0, best = Infinity;
+  for (let i = 0; i <= 200; i++) { const u = i / 200; const q = roadCurve.getPointAt(u); const d = Math.hypot(q.x - BRIDGE_AT[0], q.z - BRIDGE_AT[1]); if (d < best) { best = d; bu = u; } }
+  const t = roadCurve.getTangentAt(bu);
+  return { ux: t.x, uz: t.z };
+}
+
 // The arched stone bridge over the stream. Its deck floor rises to ~2.6 m at the
 // centre, so the player has to climb up and over it instead of walking through.
-// axis (ux,uz) = the road direction across the bridge, set once the road is built.
-const BRIDGE = { cx: BRIDGE_AT[0], cz: BRIDGE_AT[1], ux: 1, uz: 0, peak: 2.55, halfLen: 4.2, halfWidth: 1.6 };
+// Fully computed at module load — bridgeHeight() has no dependency on build order.
+const BRIDGE = { cx: BRIDGE_AT[0], cz: BRIDGE_AT[1], ...bridgeAxis(), peak: 2.55, halfLen: 4.2, halfWidth: 1.6 };
 
 /** Deck height of the bridge at (x,z) — a parabolic arch along the road; 0 off the deck. */
 export function bridgeHeight(x: number, z: number): number {
@@ -45,16 +56,8 @@ export function chaikin(points: Pt[], iterations: number): Pt[] {
 
 /** Lay road tiles along the smoothed spline + a bridge at the river crossing. */
 export async function buildRoad(scene: THREE.Scene, colliders: Collider[] = []): Promise<void> {
-  const curve = new THREE.CatmullRomCurve3(
-    ROAD_POINTS.map(([x, z]) => new THREE.Vector3(x, 0, z)),
-  );
+  const curve = roadCurve;
   const len = curve.getLength();
-
-  // orient the deck along the road at the crossing: find the curve param nearest the bridge
-  let bu = 0, bbest = Infinity;
-  for (let i = 0; i <= 200; i++) { const u = i / 200; const q = curve.getPointAt(u); const d = Math.hypot(q.x - BRIDGE_AT[0], q.z - BRIDGE_AT[1]); if (d < bbest) { bbest = d; bu = u; } }
-  const ct = curve.getTangentAt(bu);
-  BRIDGE.ux = ct.x; BRIDGE.uz = ct.z;   // deck axis along the road
 
   const tile = await loadGLTF("road-straight");
   const TILE_LEN = 6;     // fit the tile's long (X) axis to 6 m
@@ -79,7 +82,7 @@ export async function buildRoad(scene: THREE.Scene, colliders: Collider[] = []):
   toonify(bm);
   fitToGround(bm, 8);
   bm.position.x = BRIDGE_AT[0]; bm.position.z = BRIDGE_AT[1]; bm.position.y += 0.1;
-  bm.rotation.y = Math.atan2(-ct.z, ct.x); // bridge deck runs along the road
+  bm.rotation.y = Math.atan2(-BRIDGE.uz, BRIDGE.ux); // bridge deck runs along the road
   scene.add(bm);
 
   // parapet colliders down both sides of the deck so the player stays on the bridge

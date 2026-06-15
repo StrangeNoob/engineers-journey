@@ -49,9 +49,11 @@ export class StopManager {
   private rangeFor(): number { return 14; } // proximity from a stop's centre (covers larger footprints)
 
   private recall(id: string): void {
+    const tale = this.content[id];
+    if (!tale) { console.warn(`no tale content for stop "${id}"`); return; }
     this.prompt.hide();
     this.journal.recall(id);
     this.onChange();
-    this.panel.open(this.content[id], () => { /* closed */ });
+    this.panel.open(tale, () => { /* closed */ });
   }
 }

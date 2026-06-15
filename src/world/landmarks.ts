@@ -43,10 +43,10 @@ export function placeLandmarks(scene: THREE.Scene): LandmarkRegistry {
   }));
 
   function load(p: Placement): void {
-    loaded.add(p.id);
+    loaded.add(p.id); // claim it now so update() doesn't re-trigger the in-flight load
     loadGLTF(p.id === "argonath" ? "argonath" : modelFor(p.id))
       .then((g) => {
-        const root = g.scene as unknown as THREE.Group;
+        const root = g.scene as THREE.Group;
         toonify(root);
         fitToHeight(root, p.height); // scale by real-world height (human-relative)
         root.position.x = p.x; root.position.z = p.z;
@@ -55,7 +55,7 @@ export function placeLandmarks(scene: THREE.Scene): LandmarkRegistry {
         scene.add(root);
         obstacles.push(root);
       })
-      .catch((e) => console.error(`landmark ${p.id} failed`, e));
+      .catch((e) => { loaded.delete(p.id); console.error(`landmark ${p.id} failed`, e); }); // allow a retry
   }
 
   return {

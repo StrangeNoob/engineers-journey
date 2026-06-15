@@ -80,11 +80,14 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
   });
   hideBoot(boot);
 
-  buildRoad(scene, colliders);
-  buildWater(scene, colliders);
-  scatterNature(scene, quality, colliders);
-  buildGrassField(scene, quality).then((u) => { grassWind = u; });
-  buildAmbient(scene, colliders);
+  // stream in the rest of the world after first paint; surface any asset-load failure
+  void Promise.all([
+    buildRoad(scene, colliders),
+    buildWater(scene, colliders),
+    scatterNature(scene, quality, colliders),
+    buildGrassField(scene, quality).then((u) => { grassWind = u; }),
+    buildAmbient(scene, colliders),
+  ]).catch((e) => console.error("world build failed", e));
 })().catch((e) => { console.error(e); boot.querySelector(".lab")!.textContent = "Load error — see console"; });
 
 addEventListener("resize", () => { renderer.setSize(innerWidth, innerHeight); cam.resize(); });
