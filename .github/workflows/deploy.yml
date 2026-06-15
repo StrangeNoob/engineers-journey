@@ -1,0 +1,61 @@
+name: CI/CD
+
+# Type-check + test + build on every push/PR, then deploy to Cloudflare Pages:
+#  - push to main   → production deployment (engineers-journey.pages.dev)
+#  - pull request   → a preview deployment under the PR's branch alias
+#
+# Requires two repo secrets (Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN   — token with "Cloudflare Pages: Edit" permission
+#   CLOUDFLARE_ACCOUNT_ID  — 06169b4b61e824f1fd984be45c363112
+# Until those exist, the deploy step is skipped and CI still runs as a gate.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      HAS_CF: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy to Cloudflare Pages
+        if: env.HAS_CF == 'true'
+        uses: cloudflare/wrangler-action@v3
+        env:
+          # pass the branch via a quoted env var (never interpolate a branch name
+          # straight into the command string) — production on main, preview on PRs
+          DEPLOY_BRANCH: ${{ github.head_ref || github.ref_name }}
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=engineers-journey --branch="$DEPLOY_BRANCH"
