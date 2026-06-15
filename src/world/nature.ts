@@ -63,7 +63,7 @@ interface Collider { x: number; z: number; r: number; }
 
 async function instance(scene: THREE.Scene, name: string, count: number, fit: number,
   place: (i: number, d: THREE.Object3D) => boolean,
-  opts: { sink?: number; cullable?: boolean; collide?: { list: Collider[]; r: number } } = {}): Promise<void> {
+  opts: { sink?: number; cullable?: boolean; collide?: { list: Collider[]; factor: number } } = {}): Promise<void> {
   const g = await loadGLTF(name);
   const src = firstMesh(g.scene);
   if (!src) return;
@@ -71,6 +71,17 @@ async function instance(scene: THREE.Scene, name: string, count: number, fit: nu
   const bb = src.geometry.boundingBox!;            // local geometry bbox (models are center-origin)
   const size = new THREE.Vector3(); bb.getSize(size);
   const base = fit / (size.y || 1);
+  // trunk/root-base radius (local units): the widest point in the bottom slice, where the
+  // player's body actually meets the tree. Measured from geometry so the collider matches
+  // the real trunk instead of a guessed constant.
+  let trunkR = 0;
+  if (opts.collide) {
+    const p = src.geometry.getAttribute("position");
+    const yCut = bb.min.y + size.y * 0.12;
+    for (let i = 0; i < p.count; i++) {
+      if (p.getY(i) <= yCut) trunkR = Math.max(trunkR, Math.hypot(p.getX(i), p.getZ(i)));
+    }
+  }
   const inst = new THREE.InstancedMesh(src.geometry, toonOf(src), count);
   // only trees cast shadows; grass is too small to matter and the giant mountain
   // backdrops would smear huge dark shadows across the whole world.
@@ -89,8 +100,8 @@ async function instance(scene: THREE.Scene, name: string, count: number, fit: nu
     d.position.y = -bb.min.y * s - (opts.sink ?? 0); // base on the ground, minus an optional sink
     d.updateMatrix();
     inst.setMatrixAt(n, d.matrix);
-    // register a trunk-sized solid footprint so the player can't walk through it
-    if (opts.collide) opts.collide.list.push({ x: d.position.x, z: d.position.z, r: opts.collide.r * rs });
+    // register the trunk's real footprint (local radius × this instance's world scale)
+    if (opts.collide) opts.collide.list.push({ x: d.position.x, z: d.position.z, r: trunkR * s * opts.collide.factor });
     n++;
   }
   inst.count = n;
@@ -115,7 +126,7 @@ export async function scatterNature(scene: THREE.Scene, quality: Quality, collid
       d.position.set(x, 0, z); d.rotation.y = rnd() * 6.283;
       d.scale.setScalar(0.8 + rnd() * 0.7);
       return true;
-    }, { sink: 0.7, cullable: true, collide: { list: colliders, r: 0.9 } }); // base in ground; solid trunk
+    }, { sink: 0.7, cullable: true, collide: { list: colliders, factor: 0.7 } }); // base in ground; solid trunk
   }
   await instance(scene, "grass-tuft", quality.grassCount, 0.5, (_, d) => { // ~knee-high tufts
     const a = rnd() * 6.283, r = Math.sqrt(rnd()) * 130;
