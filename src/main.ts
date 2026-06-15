@@ -19,6 +19,10 @@ import { StopManager } from "./systems/interaction";
 import { Hud } from "./ui/hud";
 import { mountTouchControls } from "./ui/touchControls";
 import { showBoot, hideBoot } from "./ui/loader";
+import { MapOverlay } from "./ui/mapOverlay";
+import { createFade } from "./ui/fade";
+import { travelTarget } from "./world/mapProjection";
+import { STOP_PLACEMENTS } from "./data/world";
 
 const app = document.getElementById("app")!;
 const boot = showBoot();
@@ -61,20 +65,39 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
   let grassWind: ((t: number) => void) | null = null;
   let elapsed = 0;
 
+  const fade = createFade();
+  const map = new MapOverlay(
+    STOP_PLACEMENTS.map((p) => ({ id: p.id, name: content[p.id].locale, x: p.x, z: p.z })),
+    journal,
+    (id) => {
+      const p = STOP_PLACEMENTS.find((s) => s.id === id)!;
+      const t = travelTarget(p.x, p.z);
+      fade.teleport(() => { gandalf.root.position.set(t.x, 0, t.z); gandalf.root.rotation.y = t.faceY; });
+    },
+  );
+  map.setButton(hud.mapBtn);
+  hud.onMap(() => map.open(gandalf.root.position.x, gandalf.root.position.z));
+  addEventListener("keydown", (e) => {
+    if (e.code !== "KeyM" || e.repeat) return;
+    if (map.isOpen) map.close();
+    else map.open(gandalf.root.position.x, gandalf.root.position.z);
+  });
+
   startLoop((dt) => {
     elapsed += dt;
     input.beginFrame();
-    // Move the player FIRST, then point the camera at the updated position. Updating the
-    // camera before the move made it aim a frame behind where Gandalf is rendered, so the
-    // character oscillated in screen space every frame (jitter) while walking.
-    gandalf.update(dt, input.state, cam.yawAngle, colliders);
-    gandalf.root.position.y = bridgeHeight(gandalf.root.position.x, gandalf.root.position.z); // walk up & over the bridge
-    followSun(scene, gandalf.root.position.x, gandalf.root.position.z);
-    cam.update(gandalf.root.position, input, dt, landmarks.obstacles);
-    cullTreesNearCamera(cam.camera.position.x, cam.camera.position.z, 5);
-    grassWind?.(elapsed);
-    landmarks.update(gandalf.root.position);
-    stops.update(gandalf.root.position, cam.camera, input);
+    if (!map.isOpen) {
+      // Move the player FIRST, then point the camera at the updated position (avoids the
+      // one-frame camera lag that caused screen jitter while walking).
+      gandalf.update(dt, input.state, cam.yawAngle, colliders);
+      gandalf.root.position.y = bridgeHeight(gandalf.root.position.x, gandalf.root.position.z);
+      followSun(scene, gandalf.root.position.x, gandalf.root.position.z);
+      cam.update(gandalf.root.position, input, dt, landmarks.obstacles);
+      cullTreesNearCamera(cam.camera.position.x, cam.camera.position.z, 5);
+      grassWind?.(elapsed);
+      landmarks.update(gandalf.root.position);
+      stops.update(gandalf.root.position, cam.camera, input);
+    }
     input.endFrame();
     renderer.render(scene, cam.camera);
   });
