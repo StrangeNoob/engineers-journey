@@ -90,6 +90,7 @@ export class Gandalf {
       listening: this.mixer.clipAction(clip(listening, "listening")),
     };
     (["idle", "walk", "run"] as Gait[]).forEach((k) => { this.loco[k].play(); this.loco[k].weight = k === "idle" ? 1 : 0; });
+    Object.values(this.gestures).forEach((a) => { a.weight = 0; });
     // a finished gesture that isn't being held fades back to locomotion
     this.mixer.addEventListener("finished", (e) => {
       if (e.action === this.active && !this.hold) this.gestureTarget = 0;
@@ -118,6 +119,7 @@ export class Gandalf {
 
   /** Play a one-shot gesture. hold=true keeps the end pose until releaseGesture(). */
   playGesture(name: "wave" | "listening", hold = false): void {
+    if (this.active) { this.active.weight = 0; this.active.stop(); }
     const a = this.gestures[name];
     a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true;
     a.weight = 0; a.play();
