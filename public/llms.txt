@@ -1,0 +1,12 @@
+# An Engineer's Journey
+
+> A playable 3D Middle-earth portfolio for Prateek Kumar Mohanty, a backend software engineer. Visitors free-roam an open world as Gandalf, walking between six villages that each "recall a tale" — a chapter of his career and projects. Built with Vite, TypeScript, and Three.js; deployed on Cloudflare Pages.
+
+## About
+
+- [Portfolio](https://journey.prateekm.dev/): Interactive 3D portfolio — free-roam world, six villages, each revealing a career chapter as an in-world parchment tale.
+- [GitHub](https://github.com/StrangeNoob): Source code and open-source projects.
+
+## Notes
+
+- This is an interactive WebGL experience: the career and project content is presented as in-world "tale" panels reached by exploring, rather than as static HTML pages.

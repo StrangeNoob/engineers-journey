@@ -1,0 +1,5 @@
+# An Engineer's Journey — https://journey.prateekm.dev
+User-agent: *
+Allow: /
+
+Sitemap: https://journey.prateekm.dev/sitemap.xml
