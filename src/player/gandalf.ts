@@ -51,9 +51,13 @@ export function resolveCollisions(x: number, z: number, colliders: Collider[], r
   return { x, z };
 }
 
-const WALK_SPEED = 2.6;
-const RUN_SPEED = 5.6;
+const WALK_SPEED = 4.2;
+const RUN_SPEED = 8.8;
 const BODY_RADIUS = 0.5;   // Gandalf's collision footprint (metres)
+// the walk/run clips were authored to look in-step at these speeds; we scale each
+// clip's playback by actual/authored so faster movement doesn't make the feet skate.
+const WALK_CLIP_SPEED = 2.6;
+const RUN_CLIP_SPEED = 5.6;
 
 export class Gandalf {
   readonly root = new THREE.Group();
@@ -90,6 +94,8 @@ export class Gandalf {
       listening: this.mixer.clipAction(clip(listening, "listening")),
     };
     (["idle", "walk", "run"] as Gait[]).forEach((k) => { this.loco[k].play(); this.loco[k].weight = k === "idle" ? 1 : 0; });
+    this.loco.walk.timeScale = WALK_SPEED / WALK_CLIP_SPEED;   // keep strides in step with the faster pace
+    this.loco.run.timeScale = RUN_SPEED / RUN_CLIP_SPEED;
     Object.values(this.gestures).forEach((a) => { a.weight = 0; });
     // a finished gesture that isn't being held fades back to locomotion
     this.mixer.addEventListener("finished", (e) => {
