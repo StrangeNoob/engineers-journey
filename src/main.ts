@@ -1,7 +1,7 @@
 import "./styles/main.css";
 import { STOPS } from "./data/career";
 import { createRenderer } from "./engine/renderer";
-import { createScene } from "./engine/scene";
+import { createScene, followSun } from "./engine/scene";
 import { startLoop } from "./engine/loop";
 import { Input } from "./engine/input";
 import { detectQuality } from "./engine/quality";
@@ -46,15 +46,22 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
 
 (async () => {
   await gandalf.load();
-  gandalf.root.position.set(-60, 0, 62);
+  gandalf.root.position.set(-60, 0, 62); // spawn just outside the Shire (start of the road)
   scene.add(gandalf.root);
 
   const landmarks = placeLandmarks(scene);
   landmarks.update(gandalf.root.position);
   const stops = new StopManager(landmarks.stops, content, journal, () => hud.set(journal.count, journal.total));
 
+  // debug hook — teleport/inspect while developing (e.g. __game.go(56,16) to Isengard)
+  (window as unknown as { __game: unknown }).__game = {
+    gandalf, cam, scene, input,
+    go: (x: number, z: number) => gandalf.root.position.set(x, 0, z),
+  };
+
   startLoop((dt) => {
     input.beginFrame();
+    followSun(scene, gandalf.root.position.x, gandalf.root.position.z);
     cam.update(gandalf.root.position, input, dt);
     gandalf.update(dt, input.state, cam.yawAngle);
     landmarks.update(gandalf.root.position);

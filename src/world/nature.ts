@@ -37,7 +37,10 @@ async function instance(scene: THREE.Scene, name: string, count: number, fit: nu
   const size = new THREE.Vector3(); bb.getSize(size);
   const base = fit / (size.y || 1);
   const inst = new THREE.InstancedMesh(src.geometry, toonOf(src), count);
-  inst.castShadow = true; inst.receiveShadow = true;
+  // only trees cast shadows; grass is too small to matter and the giant mountain
+  // backdrops would smear huge dark shadows across the whole world.
+  inst.castShadow = !(name.includes("grass") || name.includes("mountain"));
+  inst.receiveShadow = true;
   const d = new THREE.Object3D();
   let n = 0;
   let guard = 0;
