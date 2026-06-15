@@ -80,14 +80,19 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
   });
   hideBoot(boot);
 
-  // stream in the rest of the world after first paint; surface any asset-load failure
-  void Promise.all([
-    buildRoad(scene, colliders),
-    buildWater(scene, colliders),
-    scatterNature(scene, quality, colliders),
-    buildGrassField(scene, quality).then((u) => { grassWind = u; }),
-    buildAmbient(scene, colliders),
-  ]).catch((e) => console.error("world build failed", e));
+  // stream in the rest of the world after first paint; let each builder finish
+  // independently and report exactly which one failed (a missing asset shouldn't
+  // take the others down or leave an unhandled rejection).
+  const builders: [string, Promise<unknown>][] = [
+    ["road", buildRoad(scene, colliders)],
+    ["water", buildWater(scene, colliders)],
+    ["nature", scatterNature(scene, quality, colliders)],
+    ["grass", buildGrassField(scene, quality).then((u) => { grassWind = u; })],
+    ["ambient", buildAmbient(scene, colliders)],
+  ];
+  void Promise.allSettled(builders.map(([, p]) => p)).then((results) => {
+    results.forEach((r, i) => { if (r.status === "rejected") console.error(`world build "${builders[i][0]}" failed`, r.reason); });
+  });
 })().catch((e) => { console.error(e); boot.querySelector(".lab")!.textContent = "Load error — see console"; });
 
 addEventListener("resize", () => { renderer.setSize(innerWidth, innerHeight); cam.resize(); });
