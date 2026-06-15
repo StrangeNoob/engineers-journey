@@ -32,6 +32,6 @@ export async function buildWater(scene: THREE.Scene): Promise<void> {
     m.rotation.y = Math.atan2(-tan.z, tan.x); // align the tile's +X (its length) with the river
     scene.add(m);
   }
-  await placeOnce(scene, "well", -3, 13, 3);            // ~3 m well, beside Bree
-  await placeOnce(scene, "the-fountain", 4, 15, 3.2);   // ~3 m fountain, clear of the well
+  await placeOnce(scene, "well", 12, 20, 3);            // ~3 m well, in Bree's square
+  await placeOnce(scene, "the-fountain", 6, 23, 3.2);  // ~3 m fountain, clear of the well
 }

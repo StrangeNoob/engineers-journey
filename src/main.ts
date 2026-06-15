@@ -46,8 +46,8 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
 
 (async () => {
   await gandalf.load();
-  gandalf.root.position.set(-57, 0, 46);      // on the road, just outside the Shire's gate
-  gandalf.root.rotation.y = Math.atan2(5, -34); // facing north up the road toward Bywater
+  gandalf.root.position.set(-59, 0, 49);      // at the start of the road, by the Shire's gate
+  gandalf.root.rotation.y = Math.atan2(8, -43); // facing down the road toward Bywater
   scene.add(gandalf.root);
 
   const landmarks = placeLandmarks(scene);

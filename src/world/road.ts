@@ -1,13 +1,8 @@
 import * as THREE from "three";
 import { loadGLTF, toonify, fitToGround } from "./assets";
-import { ROAD_POINTS, BRIDGE_AT, STOP_PLACEMENTS, ARGONATH } from "../data/world";
+import { ROAD_POINTS, BRIDGE_AT } from "../data/world";
 
 type Pt = [number, number];
-
-// a road tile inside a building's footprint would disappear under it — stop at the gate instead
-function insideLandmark(x: number, z: number): boolean {
-  return [...STOP_PLACEMENTS, ARGONATH].some((p) => Math.hypot(x - p.x, z - p.z) < p.footprint * 0.45);
-}
 
 /** Pure: Chaikin corner-cutting smoothing; pins endpoints. */
 export function chaikin(points: Pt[], iterations: number): Pt[] {
@@ -40,7 +35,6 @@ export async function buildRoad(scene: THREE.Scene): Promise<void> {
     // sample by ARC LENGTH (getPointAt), not raw curve parameter (getPoint): Catmull-Rom
     // parameter spacing is uneven, which left some tiles bunched and others gapped.
     const p = curve.getPointAt(u);
-    if (insideLandmark(p.x, p.z)) continue; // don't pave under a building
     const tan = curve.getTangentAt(u);
     const m = (tile.scene as unknown as THREE.Group).clone(true);
     toonify(m);
@@ -52,9 +46,12 @@ export async function buildRoad(scene: THREE.Scene): Promise<void> {
   const bridge = await loadGLTF("stone-bridge");
   const bm = (bridge.scene as unknown as THREE.Group).clone(true);
   toonify(bm);
-  fitToGround(bm, 7);
+  fitToGround(bm, 8);
   bm.position.x = BRIDGE_AT[0]; bm.position.z = BRIDGE_AT[1]; bm.position.y += 0.1;
-  const ct = curve.getTangentAt(0.65);
+  // orient the deck along the road at the crossing: find the curve param nearest the bridge
+  let bu = 0, bbest = Infinity;
+  for (let i = 0; i <= 200; i++) { const u = i / 200; const q = curve.getPointAt(u); const d = Math.hypot(q.x - BRIDGE_AT[0], q.z - BRIDGE_AT[1]); if (d < bbest) { bbest = d; bu = u; } }
+  const ct = curve.getTangentAt(bu);
   bm.rotation.y = Math.atan2(-ct.z, ct.x); // bridge deck runs along the road
   scene.add(bm);
 }

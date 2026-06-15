@@ -20,6 +20,6 @@ export async function buildAmbient(scene: THREE.Scene): Promise<void> {
   await prop(scene, "campfire", -40, 28, 1.2, 0);
   await prop(scene, "market-stall", -16, -4, 3, -0.5);    // Bree market
   await prop(scene, "signpost", -59, 16, 2.6, 0.3);       // the journey's first waymark
-  await prop(scene, "route-marker", 15, -27, 1.6, 0);     // beside the road to Edoras
+  await prop(scene, "route-marker", 18, -22, 1.6, 0);     // beside the road to the crossing
   await prop(scene, "route-marker", 51, 4, 1.6, 0);       // beside the road to Isengard
 }

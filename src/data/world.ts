@@ -17,26 +17,30 @@ export interface Placement {
 // Every building stays clearly taller than Gandalf (~1.9 m) — the smallest (Shire, 5 m) is
 // still ~2.6× him. The giants are trimmed so they fit the compact world without the road
 // running into them, while remaining monumental (Minas the tallest at 24 m).
+// The ROAD_POINTS below trace a smooth continuous arc; every building sits just OFF
+// that arc (offset to the open side) so the road passes BESIDE each village rather
+// than running through it. x/z here are the offset (beside-the-road) positions.
 export const STOP_PLACEMENTS: Placement[] = [
-  { id: "shire",    x: -60, z: 55,  facingDeg: 199, height: 5,  footprint: 11, sink: 0.15 }, // door faces the road north toward Bywater
-  { id: "bywater",  x: -52, z: 12,  facingDeg: 80,  height: 7,  footprint: 11, sink: 0.15 },
-  { id: "bree",     x: -8,  z: 4,   facingDeg: 120, height: 9,  footprint: 13, sink: 0.15 },
-  { id: "edoras",   x: 6,   z: -44, facingDeg: 160, height: 13, footprint: 18, sink: 0.15 },
-  { id: "isengard", x: 56,  z: 16,  facingDeg: 230, height: 18, footprint: 16, sink: 0.2 },
-  { id: "minas",    x: 74,  z: -52, facingDeg: 200, height: 24, footprint: 26, sink: 0.3 },
+  { id: "shire",    x: -68.8, z: 53.4, facingDeg: 110, height: 5,  footprint: 11, sink: 0.15 },
+  { id: "bywater",  x: -59.4, z: 4.5,  facingDeg: 75,  height: 7,  footprint: 11, sink: 0.15 },
+  { id: "bree",     x: 0,     z: 12.3, facingDeg: 254, height: 9,  footprint: 13, sink: 0.15 },
+  { id: "edoras",   x: 2.2,   z: -57.4,facingDeg: 46,  height: 13, footprint: 18, sink: 0.15 },
+  { id: "isengard", x: 65.6,  z: 24.7, facingDeg: 258, height: 18, footprint: 16, sink: 0.2 },
+  { id: "minas",    x: 91.5,  z: -47.3,facingDeg: 285, height: 24, footprint: 26, sink: 0.3 },
 ];
 
-export const ARGONATH: Placement = { id: "argonath", x: 34, z: -8, facingDeg: 180, height: 20, footprint: 17, sink: 0 };
+// The Pillars of the Kings stand astride the river just off the road, beside the bridge.
+export const ARGONATH: Placement = { id: "argonath", x: 31.1, z: 5.7, facingDeg: 180, height: 20, footprint: 17, sink: 0 };
 
-/** Road control points, in journey order (Argonath is a waypoint the road passes). */
+/** Road control points: a smooth continuous arc threading the journey. Buildings sit beside it. */
 export const ROAD_POINTS: [number, number][] = [
   [-60, 55], [-52, 12], [-8, 4], [6, -44], [34, -8], [56, 16], [74, -52],
 ];
 
-/** River control points (a stream the road crosses near the Argonath). */
+/** River control points — crosses the road once, cleanly, on the Argonath→Isengard leg. */
 export const RIVER_POINTS: [number, number][] = [
-  [12, -82], [26, -40], [34, -8], [44, 24], [58, 52],
+  [18, 26], [30, 8], [40, -10], [48, -28], [56, -46],
 ];
 
-/** Where the bridge sits (road × river crossing, near the Argonath). */
-export const BRIDGE_AT: [number, number] = [34, -8];
+/** Where the bridge sits (the single road × river crossing). */
+export const BRIDGE_AT: [number, number] = [37, -4.7];
