@@ -27,7 +27,8 @@ export class MapOverlay {
     this.root.addEventListener("click", (e) => { if (e.target === this.root) this.close(); }); // backdrop
     addEventListener("keydown", (e) => { if (e.key === "Escape" && this.isOpen) this.close(); });
 
-    const style = document.createElement("style");
+    const style = document.getElementById("map-style") ?? document.createElement("style"); // inject once
+    style.id = "map-style";
     style.textContent =
       "#map svg{width:min(900px,94vw);height:auto;filter:drop-shadow(0 18px 50px rgba(0,0,0,.5))}" +
       "#map .mk{cursor:pointer}#map .mk:focus{outline:none}" +
