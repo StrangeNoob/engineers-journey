@@ -24,12 +24,14 @@ function scrollPosFor(p: Placement): THREE.Vector3 {
 
 export interface LandmarkRegistry {
   stops: PlacedStop[];
+  obstacles: THREE.Object3D[];   // loaded building roots, for camera collision
   update(playerPos: THREE.Vector3): void;
 }
 
 export function placeLandmarks(scene: THREE.Scene): LandmarkRegistry {
   const all: Placement[] = [...STOP_PLACEMENTS, ARGONATH];
   const loaded = new Set<string>();
+  const obstacles: THREE.Object3D[] = [];
 
   const stops: PlacedStop[] = STOP_PLACEMENTS.map((p) => ({
     id: p.id,
@@ -48,12 +50,14 @@ export function placeLandmarks(scene: THREE.Scene): LandmarkRegistry {
         root.position.y -= p.sink;
         root.rotation.y = THREE.MathUtils.degToRad(p.facingDeg);
         scene.add(root);
+        obstacles.push(root);
       })
       .catch((e) => console.error(`landmark ${p.id} failed`, e));
   }
 
   return {
     stops,
+    obstacles,
     update(playerPos) {
       for (const p of all) {
         if (!loaded.has(p.id) && withinLoadRange(p.x, p.z, playerPos.x, playerPos.z, LOAD_RANGE)) load(p);

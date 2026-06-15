@@ -62,7 +62,7 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
   startLoop((dt) => {
     input.beginFrame();
     followSun(scene, gandalf.root.position.x, gandalf.root.position.z);
-    cam.update(gandalf.root.position, input, dt);
+    cam.update(gandalf.root.position, input, dt, landmarks.obstacles);
     gandalf.update(dt, input.state, cam.yawAngle);
     landmarks.update(gandalf.root.position);
     stops.update(gandalf.root.position, cam.camera, input);
