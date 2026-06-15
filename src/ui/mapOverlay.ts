@@ -1,103 +1,124 @@
 import type { Journal } from "../systems/journal";
-import { ROAD_POINTS, RIVER_POINTS, ARGONATH } from "../data/world";
-import { mapBounds, worldToMap, nearestUnvisited, type MapView } from "../world/mapProjection";
+import { nearestStop, nearestUnvisited } from "../world/mapProjection";
 
 export interface MapStop { id: string; name: string; x: number; z: number; }
 
-const VIEW: MapView = { w: 1000, h: 700, pad: 70 };
 const NS = "http://www.w3.org/2000/svg";
 
-/** Full-screen parchment map overlay. Open with open(playerX,playerZ); markers fast-travel. */
+// app stop id ↔ the ids baked into public/assets/img/map.svg
+const SVG_ID: Record<string, string> = {
+  shire: "shire", bywater: "bywaterMill", bree: "bree",
+  edoras: "edoras", isengard: "isengard", minas: "minasTirith",
+};
+const APP_ID: Record<string, string> = Object.fromEntries(Object.entries(SVG_ID).map(([a, s]) => [s, a]));
+// marker anchor coords baked into the artwork (where each village is drawn)
+const SVG_POS: Record<string, { x: number; y: number }> = {
+  shire: { x: 240, y: 860 }, bywaterMill: { x: 285, y: 585 }, bree: { x: 650, y: 598 },
+  edoras: { x: 790, y: 382 }, isengard: { x: 1124, y: 748 }, minasTirith: { x: 1324, y: 222 },
+};
+
+let stylesInjected = false;
+function injectStyle(): void {
+  if (stylesInjected) return; stylesInjected = true;
+  const s = document.createElement("style");
+  s.textContent =
+    "#map svg{width:min(1120px,96vw);height:auto;max-height:92vh;border-radius:10px;filter:drop-shadow(0 18px 50px rgba(0,0,0,.55))}" +
+    "#map .ej-state{stroke:#2e2a22;stroke-width:2.5;filter:drop-shadow(0 0 3px rgba(252,247,233,.95))}" +
+    "#map .ej-visited{fill:#caa24a}" +
+    "#map .ej-unvisited{fill:#efe6cf;opacity:.5}" +
+    "@keyframes ejmapnudge{0%,100%{transform:scale(1);opacity:.95}50%{transform:scale(1.55);opacity:.4}}" +
+    "#map .ej-nudge{fill:#b03a48;transform-box:fill-box;transform-origin:center;animation:ejmapnudge 1.4s ease-in-out infinite}";
+  document.head.appendChild(s);
+}
+
+/** Full-screen illustrated-map overlay (public/assets/img/map.svg). Open with
+ *  open(playerX,playerZ); the SVG hotspots fast-travel; a pin shows the nearest village. */
 export class MapOverlay {
   private root = document.createElement("div");
-  private svg!: SVGSVGElement;
+  private svg?: SVGSVGElement;
+  private marker?: SVGGraphicsElement;
   private mapBtn?: HTMLElement;
-  private readonly bounds = mapBounds();
+  private ready: Promise<void>;
 
   constructor(
     private readonly stops: MapStop[],
     private readonly journal: Journal,
     private readonly onTravel: (id: string) => void,
   ) {
+    injectStyle();
     this.root.id = "map";
     this.root.setAttribute("inert", "");
     this.root.style.cssText =
-      "position:fixed;inset:0;z-index:9;display:grid;place-items:center;background:rgba(20,16,10,.55);" +
+      "position:fixed;inset:0;z-index:9;display:grid;place-items:center;background:rgba(20,16,10,.6);" +
       "opacity:0;transition:opacity .3s ease;pointer-events:none";
     this.root.addEventListener("click", (e) => { if (e.target === this.root) this.close(); }); // backdrop
     addEventListener("keydown", (e) => { if (e.key === "Escape" && this.isOpen) this.close(); });
-
-    const style = document.getElementById("map-style") ?? document.createElement("style"); // inject once
-    style.id = "map-style";
-    style.textContent =
-      "#map svg{width:min(900px,94vw);height:auto;filter:drop-shadow(0 18px 50px rgba(0,0,0,.5))}" +
-      "#map .mk{cursor:pointer}#map .mk:focus{outline:none}" +
-      "#map .mk:focus .ring,#map .mk:hover .ring{stroke:#b03a48;stroke-width:3}" +
-      "@keyframes ejpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.4)}}" +
-      "#map .pulse{transform-box:fill-box;transform-origin:center;animation:ejpulse 1.4s ease-in-out infinite}";
-    document.head.appendChild(style);
-
-    this.build();
     document.body.appendChild(this.root);
+    this.ready = this.load();
   }
 
   /** the element to return focus to on close (the HUD [Map] button). */
   setButton(btn: HTMLElement): void { this.mapBtn = btn; }
 
-  private el<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string | number>): SVGElementTagNameMap[K] {
-    const n = document.createElementNS(NS, tag);
-    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, String(v));
-    return n;
-  }
-
-  private path(points: readonly [number, number][]): string {
-    return points.map(([x, z], i) => {
-      const { px, py } = worldToMap(x, z, this.bounds, VIEW);
-      return `${i ? "L" : "M"} ${px.toFixed(1)} ${py.toFixed(1)}`;
-    }).join(" ");
-  }
-
-  private build(): void {
-    const svg = this.el("svg", { viewBox: `0 0 ${VIEW.w} ${VIEW.h}`, role: "dialog", "aria-label": "Journey map" });
-    svg.appendChild(this.el("rect", { x: 8, y: 8, width: VIEW.w - 16, height: VIEW.h - 16, rx: 18, fill: "#e9dcc0" }));
-    svg.appendChild(this.el("rect", { x: 20, y: 20, width: VIEW.w - 40, height: VIEW.h - 40, rx: 12, fill: "none", stroke: "#c2ad84", "stroke-width": 3 }));
-    svg.appendChild(this.el("path", { d: this.path(RIVER_POINTS), fill: "none", stroke: "#7fb4c9", "stroke-width": 7, "stroke-linecap": "round", "stroke-linejoin": "round", opacity: 0.85 }));
-    svg.appendChild(this.el("path", { d: this.path(ROAD_POINTS), fill: "none", stroke: "#9c7b4d", "stroke-width": 6, "stroke-linecap": "round", "stroke-linejoin": "round", "stroke-dasharray": "1 12" }));
-    const a = worldToMap(ARGONATH.x, ARGONATH.z, this.bounds, VIEW);
-    const arg = this.el("text", { x: a.px, y: a.py + 7, "text-anchor": "middle", "font-size": 24, fill: "#6c5a3c" });
-    arg.textContent = "⛩";
-    svg.appendChild(arg);
-    this.svg = svg;
+  private async load(): Promise<void> {
+    let svg: SVGSVGElement;
+    try {
+      const text = await fetch("/assets/img/map.svg").then((r) => r.text());
+      svg = new DOMParser().parseFromString(text, "image/svg+xml").documentElement as unknown as SVGSVGElement;
+    } catch (e) { console.error("map.svg failed to load", e); return; }
+    svg.removeAttribute("width"); svg.removeAttribute("height");
+    svg.querySelector("script")?.remove(); // we wire interactivity ourselves
     this.root.appendChild(svg);
+    this.svg = svg;
+    this.marker = (svg.querySelector("#current-location-marker") as SVGGraphicsElement | null) ?? undefined;
+
+    // a small state dot per village (visited / nudge), drawn above the pin
+    const layer = document.createElementNS(NS, "g");
+    for (const appId of Object.keys(SVG_ID)) {
+      const pos = SVG_POS[SVG_ID[appId]];
+      const dot = document.createElementNS(NS, "circle");
+      dot.setAttribute("cx", String(pos.x)); dot.setAttribute("cy", String(pos.y)); // on the village anchor
+      dot.setAttribute("r", "11"); dot.setAttribute("class", "ej-state");
+      dot.setAttribute("data-app", appId);
+      layer.appendChild(dot);
+    }
+    svg.appendChild(layer);
+
+    // make the pre-placed hotspots keyboard-focusable and fast-travel on activate
+    svg.querySelectorAll<SVGCircleElement>(".hotspot").forEach((hs) => {
+      const appId = APP_ID[hs.getAttribute("data-stop") ?? ""];
+      if (!appId) return;
+      hs.setAttribute("tabindex", "0");
+      hs.setAttribute("role", "button");
+      const go = () => { this.close(); this.onTravel(appId); };
+      hs.addEventListener("click", go);
+      hs.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+    });
   }
 
-  open(playerX: number, playerZ: number): void {
-    this.svg.querySelectorAll(".dyn").forEach((n) => n.remove()); // rebuild markers from current journal state
-    const layer = this.el("g", { class: "dyn" });
-    const nudge = nearestUnvisited(playerX, playerZ, this.stops, (id) => this.journal.isVisited(id));
+  async open(playerX: number, playerZ: number): Promise<void> {
+    await this.ready;
+    if (!this.svg) return;
+    // "you are here" pin → nearest village
+    const pos = SVG_POS[SVG_ID[nearestStop(playerX, playerZ, this.stops)]];
+    if (pos && this.marker) this.marker.setAttribute("transform", `translate(${pos.x} ${pos.y})`);
 
-    for (const s of this.stops) {
-      const { px, py } = worldToMap(s.x, s.z, this.bounds, VIEW);
-      const visited = this.journal.isVisited(s.id);
-      const g = this.el("g", { class: "mk", tabindex: 0, role: "button", "aria-label": `Travel to ${s.name}${visited ? " (visited)" : ""}` });
-      const ring = this.el("circle", { class: "ring", cx: px, cy: py, r: 14, fill: visited ? "#caa24a" : "#cabf9f", stroke: "#5a3b2a", "stroke-width": 2 });
-      if (s.id === nudge) ring.classList.add("pulse");
-      const label = this.el("text", { x: px, y: py - 22, "text-anchor": "middle", "font-size": 18, fill: "#3a2f20" });
-      label.textContent = s.name;
-      g.append(ring, label);
-      const go = () => { this.close(); this.onTravel(s.id); };
-      g.addEventListener("click", go);
-      g.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
-      layer.appendChild(g);
-    }
-    const gp = worldToMap(playerX, playerZ, this.bounds, VIEW);
-    layer.appendChild(this.el("circle", { cx: gp.px, cy: gp.py, r: 7, fill: "#2e2a22", stroke: "#fff", "stroke-width": 2 }));
-    this.svg.appendChild(layer);
+    const nudge = nearestUnvisited(playerX, playerZ, this.stops, (id) => this.journal.isVisited(id));
+    this.svg.querySelectorAll<SVGCircleElement>(".hotspot").forEach((hs) => {
+      const appId = APP_ID[hs.getAttribute("data-stop") ?? ""];
+      const name = this.stops.find((s) => s.id === appId)?.name ?? appId;
+      hs.setAttribute("aria-label", `Travel to ${name}${this.journal.isVisited(appId) ? " (visited)" : ""}`);
+    });
+    this.svg.querySelectorAll<SVGCircleElement>("[data-app]").forEach((dot) => {
+      const appId = dot.getAttribute("data-app")!;
+      dot.setAttribute("class", appId === nudge ? "ej-state ej-nudge"
+        : this.journal.isVisited(appId) ? "ej-state ej-visited" : "ej-state ej-unvisited");
+    });
 
     this.root.removeAttribute("inert");
     this.root.style.opacity = "1";
     this.root.style.pointerEvents = "auto";
-    (this.svg.querySelector(".mk") as SVGGElement | null)?.focus();
+    (this.svg.querySelector(".hotspot") as SVGCircleElement | null)?.focus();
   }
 
   close(): void {
