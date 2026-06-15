@@ -36,12 +36,6 @@ export class Gandalf {
     const run = await loadGLTF("gandalf-run");
     const mesh = walk.scene;
     toonify(mesh);
-    // normalize height to ~1.9 units, feet on ground
-    const box = new THREE.Box3().setFromObject(mesh);
-    const size = new THREE.Vector3(); box.getSize(size);
-    const k = 1.9 / size.y;
-    mesh.scale.setScalar(k);
-    mesh.position.y -= box.min.y * k;
     this.root.add(mesh);
 
     const walkClip = walk.animations[0], runClip = run.animations[0];
@@ -52,6 +46,30 @@ export class Gandalf {
     this.actions.run = this.mixer.clipAction(runClip);
     this.actions.walk.play(); this.actions.walk.weight = 1; // base layer (frozen when idle)
     this.actions.run.play(); this.actions.run.weight = 0;
+
+    // Size + ground from the ANIMATED skinned pose, never from Box3.setFromObject:
+    // setFromObject reads the raw (unskinned) vertex positions, which for this Mixamo
+    // rig are ~2.9x smaller than the bind/skeleton-transformed mesh — that under-measure
+    // is what blew Gandalf up to ~5.5 m and left him floating. Apply the idle pose,
+    // measure the real pose-aware bounds, scale to 1.9 m, then drop the soles to y=0.
+    this.actions.walk.setEffectiveTimeScale(0);
+    this.mixer.update(0);
+    const poseBox = () => {
+      this.root.updateMatrixWorld(true);
+      const box = new THREE.Box3(), smBox = new THREE.Box3();
+      mesh.traverse((o) => {
+        const sm = o as THREE.SkinnedMesh;
+        if (!sm.isSkinnedMesh) return;
+        sm.computeBoundingBox();
+        box.union(smBox.copy(sm.boundingBox!).applyMatrix4(sm.matrixWorld));
+      });
+      return box;
+    };
+    const raw = poseBox();
+    const k = 1.9 / (raw.max.y - raw.min.y || 1);
+    mesh.scale.setScalar(k);
+    const grounded = poseBox();           // re-measure at final scale
+    if (!grounded.isEmpty()) mesh.position.y -= grounded.min.y;
   }
 
   /** Move + animate. Returns horizontal speed. */
