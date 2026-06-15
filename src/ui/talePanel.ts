@@ -1,5 +1,7 @@
 import type { Stop } from "../data/career";
 
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 export class TalePanel {
   private el = document.createElement("aside");
   private onClose?: () => void;
@@ -7,7 +9,9 @@ export class TalePanel {
     this.el.id = "tale";
     this.el.setAttribute("inert", "");
     this.el.style.cssText =
-      "position:fixed;top:0;right:0;height:100%;width:min(420px,92vw);z-index:8;background:linear-gradient(180deg,#f4ecd8,#ece2c9);box-shadow:-12px 0 40px rgba(46,42,34,.22);transform:translateX(100%);transition:transform .45s cubic-bezier(.6,.05,.2,1);padding:60px 32px 32px;overflow-y:auto;font-family:'Iowan Old Style',Georgia,serif;color:#2e2a22";
+      "position:fixed;top:0;right:0;height:100%;width:min(420px,92vw);z-index:8;background:linear-gradient(180deg,#f4ecd8,#ece2c9);box-shadow:-12px 0 40px rgba(46,42,34,.22);clip-path:inset(0 0 100% 0);" +
+      (REDUCED ? "" : "transition:clip-path .55s cubic-bezier(.6,.05,.2,1);") +
+      "padding:60px 32px 32px;overflow-y:auto;font-family:'Iowan Old Style',Georgia,serif;color:#2e2a22";
     document.body.appendChild(this.el);
     addEventListener("keydown", (e) => { if (e.key === "Escape") this.close(); });
   }
@@ -39,11 +43,11 @@ export class TalePanel {
     }
     this.el.appendChild(chips);
     this.el.removeAttribute("inert");
-    this.el.style.transform = "translateX(0)";
+    this.el.style.clipPath = "inset(0 0 0 0)"; // unroll top -> bottom
     (close as HTMLButtonElement).focus();
   }
   close(): void {
-    this.el.style.transform = "translateX(100%)";
+    this.el.style.clipPath = "inset(0 0 100% 0)"; // roll back up
     this.el.setAttribute("inert", "");
     this.onClose?.(); this.onClose = undefined;
   }
