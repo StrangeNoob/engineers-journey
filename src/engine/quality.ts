@@ -17,6 +17,6 @@ export interface Quality {
 export function detectQuality(): Quality {
   const tier = pickTier(matchMedia("(pointer:coarse)").matches, navigator.hardwareConcurrency || 8);
   return tier === "mobile"
-    ? { tier, pixelRatio: Math.min(devicePixelRatio, 1.6), drawDistance: 140, treeCount: 90, grassCount: 1500, shadows: false }
-    : { tier, pixelRatio: Math.min(devicePixelRatio, 2), drawDistance: 230, treeCount: 240, grassCount: 6000, shadows: true };
+    ? { tier, pixelRatio: Math.min(devicePixelRatio, 1.6), drawDistance: 140, treeCount: 80, grassCount: 800, shadows: false }
+    : { tier, pixelRatio: Math.min(devicePixelRatio, 2), drawDistance: 230, treeCount: 220, grassCount: 2600, shadows: true };
 }
