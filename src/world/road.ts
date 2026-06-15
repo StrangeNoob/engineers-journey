@@ -36,14 +36,16 @@ export async function buildRoad(scene: THREE.Scene): Promise<void> {
   const STEP = 5.2;       // < TILE_LEN so consecutive tiles overlap into a continuous road
   const n = Math.floor(len / STEP);
   for (let i = 0; i <= n; i++) {
-    const t = i / n;
-    const p = curve.getPoint(t);
+    const u = i / n;
+    // sample by ARC LENGTH (getPointAt), not raw curve parameter (getPoint): Catmull-Rom
+    // parameter spacing is uneven, which left some tiles bunched and others gapped.
+    const p = curve.getPointAt(u);
     if (insideLandmark(p.x, p.z)) continue; // don't pave under a building
-    const tan = curve.getTangent(t);
+    const tan = curve.getTangentAt(u);
     const m = (tile.scene as unknown as THREE.Group).clone(true);
     toonify(m);
-    fitToGround(m, TILE_LEN);
-    m.position.set(p.x, 0.03, p.z);
+    fitToGround(m, TILE_LEN);          // grounds the tile (sets position.y)
+    m.position.x = p.x; m.position.z = p.z; m.position.y += 0.03; // keep grounding; lift off terrain
     m.rotation.y = Math.atan2(-tan.z, tan.x); // align the tile's +X (its length) with the path
     scene.add(m);
   }
@@ -51,8 +53,8 @@ export async function buildRoad(scene: THREE.Scene): Promise<void> {
   const bm = (bridge.scene as unknown as THREE.Group).clone(true);
   toonify(bm);
   fitToGround(bm, 7);
-  bm.position.set(BRIDGE_AT[0], 0.1, BRIDGE_AT[1]);
-  const ct = curve.getTangent(0.65);
+  bm.position.x = BRIDGE_AT[0]; bm.position.z = BRIDGE_AT[1]; bm.position.y += 0.1;
+  const ct = curve.getTangentAt(0.65);
   bm.rotation.y = Math.atan2(-ct.z, ct.x); // bridge deck runs along the road
   scene.add(bm);
 }

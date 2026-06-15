@@ -7,8 +7,8 @@ async function placeOnce(scene: THREE.Scene, name: string, x: number, z: number,
   const g = await loadGLTF(name);
   const m = (g.scene as unknown as THREE.Group).clone(true);
   toonify(m);
-  fitToHeight(m, height);
-  m.position.set(x, 0.02, z);
+  fitToHeight(m, height);          // grounds the base at y=0 (sets position.y)
+  m.position.x = x; m.position.z = z; m.position.y += 0.02; // keep grounding; tiny lift off the terrain
   m.rotation.y = ry;
   scene.add(m);
 }
@@ -22,15 +22,16 @@ export async function buildWater(scene: THREE.Scene): Promise<void> {
   const STEP = 4.3;       // < TILE_LEN so consecutive tiles overlap into a continuous brook
   const n = Math.floor(len / STEP);
   for (let i = 0; i <= n; i++) {
-    const t = i / n;
-    const p = curve.getPoint(t), tan = curve.getTangent(t);
+    const u = i / n;
+    // arc-length sampling (getPointAt) for even, continuous tiles — see road.ts
+    const p = curve.getPointAt(u), tan = curve.getTangentAt(u);
     const m = (tile.scene as unknown as THREE.Group).clone(true);
     toonify(m);
-    fitToGround(m, TILE_LEN);
-    m.position.set(p.x, 0.01, p.z);
+    fitToGround(m, TILE_LEN);          // grounds the tile (sets position.y)
+    m.position.x = p.x; m.position.z = p.z; m.position.y += 0.01; // keep grounding; lift off terrain
     m.rotation.y = Math.atan2(-tan.z, tan.x); // align the tile's +X (its length) with the river
     scene.add(m);
   }
-  await placeOnce(scene, "the-fountain", -2, 7, 3.2); // ~3 m fountain
-  await placeOnce(scene, "well", -13, 9, 3);          // ~3 m well
+  await placeOnce(scene, "well", -3, 13, 3);            // ~3 m well, beside Bree
+  await placeOnce(scene, "the-fountain", 4, 15, 3.2);   // ~3 m fountain, clear of the well
 }

@@ -18,7 +18,7 @@ export interface Placement {
 // still ~2.6× him. The giants are trimmed so they fit the compact world without the road
 // running into them, while remaining monumental (Minas the tallest at 24 m).
 export const STOP_PLACEMENTS: Placement[] = [
-  { id: "shire",    x: -60, z: 55,  facingDeg: 30,  height: 5,  footprint: 11, sink: 0.15 },
+  { id: "shire",    x: -60, z: 55,  facingDeg: 199, height: 5,  footprint: 11, sink: 0.15 }, // door faces the road north toward Bywater
   { id: "bywater",  x: -52, z: 12,  facingDeg: 80,  height: 7,  footprint: 11, sink: 0.15 },
   { id: "bree",     x: -8,  z: 4,   facingDeg: 120, height: 9,  footprint: 13, sink: 0.15 },
   { id: "edoras",   x: 6,   z: -44, facingDeg: 160, height: 13, footprint: 18, sink: 0.15 },
