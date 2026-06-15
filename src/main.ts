@@ -54,12 +54,16 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
   landmarks.update(gandalf.root.position);
   const stops = new StopManager(landmarks.stops, content, journal, () => hud.set(journal.count, journal.total));
 
+  // one shared list of solid footprints; every builder appends to it as its assets
+  // load, and Gandalf is pushed out of any he overlaps each frame.
+  const colliders = [...landmarks.colliders];
+
   startLoop((dt) => {
     input.beginFrame();
     followSun(scene, gandalf.root.position.x, gandalf.root.position.z);
     cam.update(gandalf.root.position, input, dt, landmarks.obstacles);
     cullTreesNearCamera(cam.camera.position.x, cam.camera.position.z, 5);
-    gandalf.update(dt, input.state, cam.yawAngle, landmarks.colliders);
+    gandalf.update(dt, input.state, cam.yawAngle, colliders);
     landmarks.update(gandalf.root.position);
     stops.update(gandalf.root.position, cam.camera, input);
     input.endFrame();
@@ -68,9 +72,9 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
   hideBoot(boot);
 
   buildRoad(scene);
-  buildWater(scene);
-  scatterNature(scene, quality);
-  buildAmbient(scene);
+  buildWater(scene, colliders);
+  scatterNature(scene, quality, colliders);
+  buildAmbient(scene, colliders);
 })().catch((e) => { console.error(e); boot.querySelector(".lab")!.textContent = "Load error — see console"; });
 
 addEventListener("resize", () => { renderer.setSize(innerWidth, innerHeight); cam.resize(); });

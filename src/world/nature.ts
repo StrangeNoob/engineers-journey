@@ -59,8 +59,11 @@ export function cullTreesNearCamera(cx: number, cz: number, r = 3): void {
   }
 }
 
+interface Collider { x: number; z: number; r: number; }
+
 async function instance(scene: THREE.Scene, name: string, count: number, fit: number,
-  place: (i: number, d: THREE.Object3D) => boolean, opts: { sink?: number; cullable?: boolean } = {}): Promise<void> {
+  place: (i: number, d: THREE.Object3D) => boolean,
+  opts: { sink?: number; cullable?: boolean; collide?: { list: Collider[]; r: number } } = {}): Promise<void> {
   const g = await loadGLTF(name);
   const src = firstMesh(g.scene);
   if (!src) return;
@@ -80,11 +83,15 @@ async function instance(scene: THREE.Scene, name: string, count: number, fit: nu
     guard++;
     d.position.set(0, 0, 0); d.rotation.set(0, 0, 0); d.scale.setScalar(1);
     if (!place(n, d)) continue;            // place sets x/z position, y-rotation, and a uniform scale
-    const s = d.scale.x * base;            // final uniform scale
+    const rs = d.scale.x;                  // per-instance random scale (before the height fit)
+    const s = rs * base;                   // final uniform scale
     d.scale.setScalar(s);
     d.position.y = -bb.min.y * s - (opts.sink ?? 0); // base on the ground, minus an optional sink
     d.updateMatrix();
-    inst.setMatrixAt(n++, d.matrix);
+    inst.setMatrixAt(n, d.matrix);
+    // register a trunk-sized solid footprint so the player can't walk through it
+    if (opts.collide) opts.collide.list.push({ x: d.position.x, z: d.position.z, r: opts.collide.r * rs });
+    n++;
   }
   inst.count = n;
   inst.instanceMatrix.needsUpdate = true;
@@ -98,7 +105,7 @@ async function instance(scene: THREE.Scene, name: string, count: number, fit: nu
 }
 
 /** Forests (mallorn variants) + grass + scattered rocks + distant mountain backdrops. */
-export async function scatterNature(scene: THREE.Scene, quality: Quality): Promise<void> {
+export async function scatterNature(scene: THREE.Scene, quality: Quality, colliders: { x: number; z: number; r: number }[] = []): Promise<void> {
   const per = Math.floor(quality.treeCount / 3);
   for (const name of ["mallorn-tree-1", "mallorn-tree-2", "mallorn-tree-3"]) {
     await instance(scene, name, per, 13 + rnd() * 4, (_, d) => { // mallorns ~10–19 m tall
@@ -108,7 +115,7 @@ export async function scatterNature(scene: THREE.Scene, quality: Quality): Promi
       d.position.set(x, 0, z); d.rotation.y = rnd() * 6.283;
       d.scale.setScalar(0.8 + rnd() * 0.7);
       return true;
-    }, { sink: 0.7, cullable: true }); // tuck the dirt base into the ground; hide near the camera
+    }, { sink: 0.7, cullable: true, collide: { list: colliders, r: 0.9 } }); // base in ground; solid trunk
   }
   await instance(scene, "grass-tuft", quality.grassCount, 0.5, (_, d) => { // ~knee-high tufts
     const a = rnd() * 6.283, r = Math.sqrt(rnd()) * 130;
