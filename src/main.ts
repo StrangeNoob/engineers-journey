@@ -93,8 +93,9 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
   hud.onMap(() => { audio.click(); map.open(gandalf.root.position.x, gandalf.root.position.z); });
   addEventListener("keydown", (e) => {
     if (e.code !== "KeyM" || e.repeat) return;
+    audio.click();
     if (map.isOpen) map.close();
-    else { audio.click(); map.open(gandalf.root.position.x, gandalf.root.position.z); }
+    else map.open(gandalf.root.position.x, gandalf.root.position.z);
   });
 
   let footDist = 0;
