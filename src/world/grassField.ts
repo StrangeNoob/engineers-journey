@@ -67,7 +67,7 @@ export async function buildGrassField(scene: THREE.Scene, quality: Quality): Pro
   const names = ["grass-1", "grass-2", "grass-4"];
   const texes = await Promise.all(names.map((n) => loader.loadAsync(`/assets/textures/${n}.png`)));
   const time = { value: 0 };
-  const total = quality.tier === "mobile" ? 3600 : 14000;
+  const total = quality.tier === "mobile" ? 6500 : 26000;
   const per = Math.floor(total / names.length);
   const d = new THREE.Object3D();
 
@@ -82,7 +82,7 @@ export async function buildGrassField(scene: THREE.Scene, quality: Quality): Pro
       guard++;
       const a = rnd() * 6.283, r = Math.pow(rnd(), 0.8) * 120; // a touch denser toward the centre
       const x = Math.cos(a) * r, z = Math.sin(a) * r;
-      if (inAClearing(x, z, -2) || roadDist(x, z) < 4 || riverDist(x, z) < 2.5) continue; // clear the road, doorsteps + stream
+      if (inAClearing(x, z, -2) || roadDist(x, z) < 2.8 || riverDist(x, z) < 2.5) continue; // hug the road edge, clear doorsteps + stream
       const h = 1.2 + rnd() * 0.7;                                 // ~1.2–1.9 m tall — waist/chest high
       d.position.set(x, 0, z);
       d.rotation.y = rnd() * 6.283;
