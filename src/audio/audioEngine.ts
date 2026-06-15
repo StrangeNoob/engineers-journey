@@ -14,12 +14,18 @@ export class AudioEngine {
   private master?: GainNode;
   private buffers: Record<string, AudioBuffer | null> = {};
   private ambientOn = false;
-  private muted = localStorage.getItem("ej.muted") === "1";
+  private muted = this.readMuted();
+
+  // localStorage can throw in private/sandboxed browsers — degrade to unmuted.
+  private readMuted(): boolean {
+    try { return localStorage.getItem("ej.muted") === "1"; } catch { return false; }
+  }
 
   /** Create/resume the context on the first user gesture, then load files + start ambient. */
   async start(): Promise<void> {
     if (this.ctx) return;
-    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return; // no Web Audio support → stay silent rather than throw
     this.ctx = new Ctx();
     this.master = this.ctx.createGain();
     this.master.gain.value = this.muted ? 0 : 1;
@@ -52,7 +58,7 @@ export class AudioEngine {
   get isMuted(): boolean { return this.muted; }
   setMuted(m: boolean): void {
     this.muted = m;
-    localStorage.setItem("ej.muted", m ? "1" : "0");
+    try { localStorage.setItem("ej.muted", m ? "1" : "0"); } catch { /* storage unavailable */ }
     if (this.master && this.ctx) this.master.gain.setTargetAtTime(m ? 0 : 1, this.ctx.currentTime, 0.05);
   }
 }
