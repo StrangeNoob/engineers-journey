@@ -60,10 +60,13 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
 
   startLoop((dt) => {
     input.beginFrame();
+    // Move the player FIRST, then point the camera at the updated position. Updating the
+    // camera before the move made it aim a frame behind where Gandalf is rendered, so the
+    // character oscillated in screen space every frame (jitter) while walking.
+    gandalf.update(dt, input.state, cam.yawAngle, colliders);
     followSun(scene, gandalf.root.position.x, gandalf.root.position.z);
     cam.update(gandalf.root.position, input, dt, landmarks.obstacles);
     cullTreesNearCamera(cam.camera.position.x, cam.camera.position.z, 5);
-    gandalf.update(dt, input.state, cam.yawAngle, colliders);
     landmarks.update(gandalf.root.position);
     stops.update(gandalf.root.position, cam.camera, input);
     input.endFrame();
