@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Phase 2a — Populate the World — Design Spec</title>
+<style>
+  :root{--paper:#f4ecd8;--paper2:#efe6cf;--ink:#2e2a22;--soft:#6a6048;--red:#b03a48;--green:#6f8147;--line:#d8cba8;--code-bg:#ece2c9}
+  *{box-sizing:border-box} html{scroll-behavior:smooth}
+  body{margin:0;background:#cdd6d3;background-image:radial-gradient(120% 90% at 50% -10%,#e9e0c8 0%,#cdd6d3 70%);color:var(--ink);font:16px/1.7 "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;padding:40px 16px 120px}
+  .sheet{max-width:880px;margin:0 auto;background:var(--paper);border:1px solid var(--line);border-radius:10px;box-shadow:0 18px 60px rgba(46,42,34,.18);padding:56px clamp(22px,5vw,64px)}
+  h1,h2,h3,h4{font-weight:600;line-height:1.2}
+  h1{font-size:clamp(28px,5vw,40px);margin:0 0 .2em} h1+p{color:var(--soft);font-size:15px}
+  h2{font-size:23px;margin:1.9em 0 .5em;padding-bottom:.28em;border-bottom:2px solid var(--line)}
+  h3{font-size:18px;margin:1.5em 0 .35em;color:#5a4a32} h4{font-size:15.5px;margin:1.2em 0 .3em;color:var(--soft)}
+  a{color:var(--red);text-decoration:none;border-bottom:1px solid rgba(176,58,72,.35)} strong{color:#4a3f2a}
+  ul,ol{padding-left:1.3em} li{margin:.3em 0}
+  hr{border:none;border-top:1px solid var(--line);margin:2.4em 0}
+  blockquote{margin:1.2em 0;padding:.6em 1.1em;background:var(--paper2);border-left:4px solid var(--green);border-radius:0 6px 6px 0;color:#4a4334}
+  code{background:var(--code-bg);padding:.12em .4em;border-radius:4px;font:13px/1.5 "SF Mono",ui-monospace,Menlo,Consolas,monospace;color:#5a4a32}
+  pre{background:var(--code-bg);border:1px solid var(--line);border-radius:8px;padding:16px 18px;overflow:auto} pre code{background:none;padding:0}
+  table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top}
+  thead th{background:#e6dcc0;color:#4a3f2a} tbody tr:nth-child(even){background:rgba(236,226,201,.45)}
+  .meta{text-align:center;color:var(--soft);font-size:12px;letter-spacing:.24em;text-transform:uppercase;margin-bottom:34px}
+  @media print{body{background:#fff;padding:0}.sheet{box-shadow:none;border:none;max-width:none}}
+</style></head><body><article class="sheet">
+<div class="meta">Design Specification · Phase 2a · engineers-journey</div>
+<h1>Design Spec — Phase 2a: Populate the World</h1>
+<p><strong>Date:</strong> 2026-06-14
+<strong>Project:</strong> An Engineer&#39;s Journey (engineers-journey)
+<strong>Status:</strong> Design — awaiting review
+<strong>Builds on:</strong> Phase 1 vertical slice (merged, deployed to engineers-journey.pages.dev)</p>
+<hr>
+<h2>1. Goal</h2>
+<p>Turn the single-landmark test patch into a <strong>full, explorable Middle-earth</strong> laid out like the
+illustrated map: all six career landmarks (+ the Argonath gateway) placed along a winding road
+through open country, with forests, mountains, water, and ambient props — every one of the six
+tales recallable. Same playable Gandalf, same controls; just a real world to roam.</p>
+<p>Phase 2b (journal/map overlay) and 2c (scroll unfurl, camera, idle, audio) build on top of this.</p>
+<hr>
+<h2>2. Key design decisions (flagged — veto any at review)</h2>
+<table>
+<thead>
+<tr>
+<th>Decision</th>
+<th>Choice</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Terrain</strong></td>
+<td><strong>Flat walkable ground</strong> + distant <strong>mountain-backdrop</strong> scenery (non-walkable)</td>
+<td>A heightmapped walkable terrain complicates the kinematic controller (ground raycast), collisions, and mobile perf for marginal gain. Flat ground + backdrop mountains reads like the map from eye level. Rolling hills = a Phase-2c polish if wanted.</td>
+</tr>
+<tr>
+<td><strong>World scale</strong></td>
+<td><strong>Compact</strong>, mirroring the map&#39;s relative layout (Shire SW → Minas Tirith NE), stops ~35–55 units apart</td>
+<td>Walkable in 1–2 min between stops; not tedious; keeps draw distance manageable.</td>
+</tr>
+<tr>
+<td><strong>Landmark loading</strong></td>
+<td><strong>Lazy-load by distance</strong> (load a landmark&#39;s GLB when Gandalf is within ~90 u; keep loaded once seen)</td>
+<td>The optimized organic buildings are still ~100–150k tris each; loading all six + Argonath up front is heavy on mobile.</td>
+</tr>
+<tr>
+<td><strong>Vegetation</strong></td>
+<td><strong>InstancedMesh</strong> for trees + grass (one draw call per kind)</td>
+<td>Hundreds of trees/grass tufts must not be hundreds of draw calls.</td>
+</tr>
+<tr>
+<td><strong>Water</strong></td>
+<td>Static generated models (<code>stream-*</code>, <code>the-fountain</code>) placed as scenery — <strong>no procedural shader</strong></td>
+<td>Per the earlier decision; static painted water fits the storybook look.</td>
+</tr>
+<tr>
+<td><strong>Asset format</strong></td>
+<td>All raw GLBs optimized via <code>scripts/optimize-glb.sh</code> → committed under <code>public/assets/models/</code></td>
+<td>Raw assets are 14–79 MB; must be Draco&#39;d to ~0.3–2 MB.</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>3. Assets (already generated; this phase optimizes + places them)</h2>
+<p>Source (raw) in <code>../new_portfolio/designs/assets/gen/middle-earth/</code>:</p>
+<ul>
+<li><strong>Landmarks:</strong> <code>argonath</code>, <code>bree-inn</code>, <code>bywater-mill</code>, <code>edoras-hall</code>, <code>isengard-tower</code>,
+<code>minas-tirith</code> (raw 16–79 MB). <code>shire-home</code> already optimized.</li>
+<li><strong>Nature:</strong> <code>mallorn-tree-1/2/3</code>, <code>grass-tuft</code>, <code>mountain-backdrop</code>, <code>mountain-backdrop_square</code>.</li>
+<li><strong>Water:</strong> <code>stream-straight</code>, <code>stream-curve</code>, <code>the-fountain</code>, <code>well</code>.</li>
+<li><strong>Road:</strong> <code>stone-road-straight/curve/crossing/fork/end</code> (straight+curve already optimized), <code>stone-bridge</code> (done).</li>
+<li><strong>Ambient:</strong> <code>covered-wagon</code>, <code>campfire-rest-point</code>, <code>market-stall</code>, <code>signpost</code>, <code>route-marker-red</code>, <code>map-table</code>, <code>portfolio-scroll</code>.</li>
+</ul>
+<blockquote>
+<p>The heaviest buildings (<code>minas-tirith</code> 79 MB, <code>bree-inn</code>/<code>bywater-mill</code> ~66 MB) may floor at
+~100–150k tris even after optimize (organic shells). If runtime perf suffers with several
+on-screen, the mitigation is re-exporting those few from Meshy with Remesh→low-poly. Tracked
+as a risk, not a blocker.</p>
+</blockquote>
+<hr>
+<h2>4. World layout (mirrors the map)</h2>
+<p>A flat ground plane (~radius 220). Coordinate convention: <code>+x</code> east, <code>−z</code> north (matches the map&#39;s
+N-up). Approximate stop positions (tunable at build), in journey order, with <strong>Argonath</strong> as a
+non-stop gateway mid-route:</p>
+<table>
+<thead>
+<tr>
+<th>Stop</th>
+<th>id</th>
+<th>world (x, z)</th>
+<th>corner</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>The Shire</td>
+<td>shire</td>
+<td>(−60, 55)</td>
+<td>SW (start)</td>
+</tr>
+<tr>
+<td>Bywater Mill</td>
+<td>bywater</td>
+<td>(−52, 12)</td>
+<td>W</td>
+</tr>
+<tr>
+<td>Bree</td>
+<td>bree</td>
+<td>(−8, 4)</td>
+<td>center crossroads</td>
+</tr>
+<tr>
+<td>Edoras</td>
+<td>edoras</td>
+<td>(6, −44)</td>
+<td>N-center</td>
+</tr>
+<tr>
+<td><em>Argonath (gateway)</em></td>
+<td>—</td>
+<td>(34, −8)</td>
+<td>by the river</td>
+</tr>
+<tr>
+<td>Isengard</td>
+<td>isengard</td>
+<td>(56, 16)</td>
+<td>E</td>
+</tr>
+<tr>
+<td>Minas Tirith</td>
+<td>minas</td>
+<td>(74, −52)</td>
+<td>NE (summit, at the mountains)</td>
+</tr>
+</tbody></table>
+<p>A <strong>winding road</strong> (Catmull-Rom spline through the stops, in order) carries the route; <code>stone-road-*</code>
+tiles are laid along it, with <code>stone-bridge</code> at the river crossing and <code>fork</code>/<code>crossing</code> tiles where
+appropriate. A <strong>river</strong> (a long <code>stream-*</code> ribbon of placed tiles) runs past the Argonath. The
+mountain backdrops ring the NE behind Minas Tirith and the far edges.</p>
+<hr>
+<h2>5. Architecture (extends Phase 1; small, focused modules)</h2>
+<pre><code class="language-text">src/
+  data/
+    world.ts            # NEW: stop world-placements (pos, facing, footprint, scrollPos) + prop layout
+    career.ts           # extend Stop usage; content unchanged
+  world/
+    assets.ts           # (exists) loader+toonify+fit; add lazy helpers if needed
+    terrain.ts          # NEW: large ground + fog tuning (replaces inline ground)
+    road.ts             # NEW: spline → placed road tiles + bridge
+    water.ts            # NEW: river (stream tiles along a spline) + fountain + well placement
+    landmarks.ts        # REWRITE: registry that places all stops; lazy-load by distance; colliders
+    nature.ts           # NEW: InstancedMesh forests (mallorn) + grass + scattered rocks + backdrops
+    ambient.ts          # NEW: wagon, campfire, market, well, signposts, route markers (placed props)
+  systems/
+    interaction.ts      # generalize: nearest-of-N stops → prompt/panel (was single Shire)
+  engine/
+    quality.ts          # NEW: device tier (desktop/mobile) → draw distance, instance counts, shadows
+  main.ts               # compose the populated world
+</code></pre>
+<p>Each module exposes a small interface, e.g. <code>buildRoad(scene): void</code>, <code>placeLandmarks(scene, getPlayerPos): { update(dt): void }</code> (drives lazy-load), <code>scatterNature(scene, quality): void</code>.</p>
+<hr>
+<h2>6. Subsystem designs</h2>
+<h3>6.1 Asset optimization (prerequisite)</h3>
+<p>A batch script run (<code>scripts/optimize-all.sh</code> or inline loop) over the raw <code>middle-earth/</code> assets →
+<code>public/assets/models/</code>. Landmarks at gentle ratio (preserve form); props/nature at standard ratio;
+textures ≤1 K; Draco. Verify each output loads + size. Commit the optimized GLBs.</p>
+<h3>6.2 Terrain (<code>terrain.ts</code>)</h3>
+<p>Large flat ground (toon green), receive shadows; fog tuned to the world scale (start ~70, end
+~220 desktop / shorter on mobile). A subtly darker &quot;meadow&quot; disc under the central village area.</p>
+<h3>6.3 Road (<code>road.ts</code>)</h3>
+<p>Catmull-Rom spline through the ordered stop positions → sample points → lay <code>road-straight</code>/<code>road-curve</code>
+tiles oriented to the path tangent (Chaikin-smooth to avoid kinks, reusing the Phase-1-proven approach
+in spirit). <code>stone-bridge</code> placed where the road crosses the river; <code>fork</code>/<code>crossing</code> at junctions.</p>
+<h3>6.4 Landmarks (<code>landmarks.ts</code> registry + lazy-load)</h3>
+<p><code>data/world.ts</code> holds each stop&#39;s <code>{ id, pos, facingDeg, footprint, sink, scrollOffset }</code>. The registry
+creates a placeholder/collider immediately and <strong>lazy-loads</strong> the GLB when the player is within range,
+toonify + fit-to-footprint + sink, add collider (cylinder) for push-out. Argonath placed as scenery
+(collider but no tale). Returns an <code>update(dt)</code> that checks distance and triggers loads.</p>
+<h3>6.5 Nature (<code>nature.ts</code>)</h3>
+<ul>
+<li><strong>Forests:</strong> <code>mallorn-tree-1/2/3</code> as <strong>InstancedMesh</strong> (per variant), scattered by seeded RNG in
+belts away from the road/stops; count scaled by quality tier.</li>
+<li><strong>Grass:</strong> <code>grass-tuft</code> instanced, denser near the road/village, thinned far out; capped on mobile.</li>
+<li><strong>Rocks:</strong> scattered (reuse existing rock approach) + <code>mountain-backdrop</code>/<code>_square</code> up-scaled on the
+horizon (NE behind Minas Tirith, and ringing far edges).</li>
+</ul>
+<h3>6.6 Water (<code>water.ts</code>)</h3>
+<p><code>stream-straight</code>/<code>stream-curve</code> tiles laid along a river spline past the Argonath (the road&#39;s
+<code>stone-bridge</code> crosses it); <code>the-fountain</code> in the Bree market square; <code>well</code> as a village prop.
+Static; no animation.</p>
+<h3>6.7 Ambient (<code>ambient.ts</code>)</h3>
+<p><code>covered-wagon</code> parked on the road near a stop; <code>campfire-rest-point</code> at a layby; <code>market-stall</code>(s) +
+<code>well</code> + <code>the-fountain</code> cluster at Bree; <code>signpost</code>/<code>route-marker-red</code> along the road at junctions.</p>
+<h3>6.8 Interaction (generalize <code>interaction.ts</code>)</h3>
+<p>Replace the single-Shire interaction with a manager over <strong>all six stops</strong>: each frame, find the nearest
+stop within trigger range → show its prompt at its <code>scrollPos</code> → on E/tap, open that stop&#39;s tale + mark
+journal. Reuses the existing <code>Prompt</code>, <code>TalePanel</code>, <code>Journal</code>, <code>withinRadius</code>.</p>
+<h3>6.9 Quality tiers (<code>quality.ts</code>)</h3>
+<p>Detect <code>pointer:coarse</code>/low cores → <strong>mobile tier</strong>: pixelRatio ≤1.6, shorter fog/draw distance, fewer
+tree/grass instances, smaller shadow map (or shadows off for distant). <strong>Desktop tier</strong>: full. One
+<code>Quality</code> object read by terrain/nature/landmarks.</p>
+<hr>
+<h2>7. Performance budget &amp; targets</h2>
+<ul>
+<li>60 fps desktop; ≥30 fps mid mobile.</li>
+<li>Landmarks lazy-loaded; at most ~3–4 detailed buildings near the player at once.</li>
+<li>Vegetation instanced (≤ a handful of draw calls); frustum culling on; fog hides the far field.</li>
+<li>Total committed asset payload target ≲ 25 MB (optimized); first paint gated on terrain + spawn-area
+only, the rest streams in.</li>
+<li>No console errors.</li>
+</ul>
+<h2>8. Acceptance criteria</h2>
+<ul>
+<li>All six landmarks appear at their map positions with correct scale/facing, each tale recallable via
+proximity → prompt → panel; journal counts up to 6/6.</li>
+<li>Road visibly threads all stops; bridge over the river; Argonath present as a gateway.</li>
+<li>Forests, grass, mountains, and ambient props populate the world cohesively (one art style).</li>
+<li>Plays on desktop <strong>and</strong> a real phone; 60 fps desktop / smooth mobile; no console errors.</li>
+<li>Deployable to Cloudflare Pages (same pipeline).</li>
+</ul>
+<h2>9. Build order (for the plan)</h2>
+<ol>
+<li>Asset optimization (batch) + commit.</li>
+<li><code>quality.ts</code> + <code>terrain.ts</code> (bigger ground/fog) + wire into main.</li>
+<li><code>data/world.ts</code> placements + <code>landmarks.ts</code> registry with lazy-load (all six + Argonath).</li>
+<li>Generalize <code>interaction.ts</code> to N stops; verify all six tales.</li>
+<li><code>road.ts</code> (spline + tiles + bridge + river).</li>
+<li><code>nature.ts</code> (instanced trees/grass/rocks/backdrops).</li>
+<li><code>ambient.ts</code> (wagon/campfire/market/well/signposts).</li>
+<li>Perf pass (quality tiers, lazy-load tuning) + runtime verify (headless) + deploy.</li>
+</ol>
+<h2>10. Risks &amp; mitigations</h2>
+<ul>
+<li><strong>Building tri-count</strong> (~100–150k each) → lazy-load + fog cull + few-on-screen; re-export heaviest from
+Meshy remeshed if needed.</li>
+<li><strong>Draw calls / instancing correctness</strong> → InstancedMesh per variant; verify counts.</li>
+<li><strong>Road spline kinks</strong> → Chaikin smoothing (Phase-1-proven).</li>
+<li><strong>Mobile perf</strong> → quality tiers from the start; test on a real device in the perf pass.</li>
+</ul>
+<h2>11. Out of scope (later sub-phases)</h2>
+<ul>
+<li><strong>2b:</strong> illustrated-map journal overlay (press M), visited markers, fast-travel.</li>
+<li><strong>2c:</strong> 3D <code>portfolio-scroll</code> unfurl on recall, camera framing/collision, proper idle clip, moving
+ambient (driving wagon, birds), audio, rolling-hills terrain.</li>
+</ul>
+
+
+</article></body></html>

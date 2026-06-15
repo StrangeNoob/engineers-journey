@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { Stop } from "../data/career";
-import type { Landmark } from "../world/landmarks";
+import type { PlacedStop } from "../world/landmarks";
 import type { Input } from "../engine/input";
 import type { Journal } from "./journal";
 import { Prompt } from "../ui/prompt";
@@ -11,29 +11,49 @@ export function withinRadius(cx: number, cz: number, px: number, pz: number, r: 
   return Math.hypot(px - cx, pz - cz) <= r;
 }
 
-export class Interaction {
+/** Pure: nearest stop (by collider centre) within `range`, else null. */
+export function nearestStop<T extends { id: string; x: number; z: number }>(
+  px: number, pz: number, stops: T[], range: number,
+): T | null {
+  let best: T | null = null, bestD = range;
+  for (const s of stops) {
+    const d = Math.hypot(px - s.x, pz - s.z);
+    if (d <= bestD) { bestD = d; best = s; }
+  }
+  return best;
+}
+
+/** Manages proximity prompts + tale panel across all stops. */
+export class StopManager {
   private prompt = new Prompt();
   private panel = new TalePanel();
+  private flat: { id: string; x: number; z: number }[];
   constructor(
-    private readonly landmark: Landmark,
-    private readonly stop: Stop,
+    private readonly placed: PlacedStop[],
+    private readonly content: Record<string, Stop>,
     private readonly journal: Journal,
     private readonly onChange: () => void,
-  ) {}
+  ) {
+    this.flat = placed.map((p) => ({ id: p.id, x: p.collider.x, z: p.collider.z }));
+  }
 
-  /** call each frame. */
   update(playerPos: THREE.Vector3, camera: THREE.Camera, input: Input): void {
     if (this.panel.isOpen) { this.prompt.hide(); return; }
-    const near = withinRadius(this.landmark.collider.x, this.landmark.collider.z, playerPos.x, playerPos.z, this.landmark.collider.r + 3);
-    if (near) {
-      this.prompt.showAt(this.landmark.scrollPos, camera);
-      if (input.state.interact) this.recall();
-    } else this.prompt.hide();
+    const near = nearestStop(playerPos.x, playerPos.z, this.flat, this.rangeFor());
+    if (!near) { this.prompt.hide(); return; }
+    const ps = this.placed.find((p) => p.id === near.id)!;
+    this.prompt.showAt(ps.scrollPos, camera);
+    if (input.state.interact) this.recall(near.id);
   }
-  private recall(): void {
+
+  private rangeFor(): number { return 14; } // proximity from a stop's centre (covers larger footprints)
+
+  private recall(id: string): void {
+    const tale = this.content[id];
+    if (!tale) { console.warn(`no tale content for stop "${id}"`); return; }
     this.prompt.hide();
-    this.journal.recall(this.stop.id);
+    this.journal.recall(id);
     this.onChange();
-    this.panel.open(this.stop, () => { /* closed */ });
+    this.panel.open(tale, () => { /* closed */ });
   }
 }

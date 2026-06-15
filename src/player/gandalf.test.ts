@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cameraRelativeMove, pickGait } from "./gandalf";
+import { cameraRelativeMove, pickGait, resolveCollisions } from "./gandalf";
 
 describe("cameraRelativeMove", () => {
   it("forward with yaw 0 goes -Z", () => {
@@ -20,4 +20,21 @@ describe("pickGait", () => {
   it("idle below walk threshold", () => { expect(pickGait(0.05, false)).toBe("idle"); });
   it("walk when moving, not running", () => { expect(pickGait(2, false)).toBe("walk"); });
   it("run when moving and run held", () => { expect(pickGait(2, true)).toBe("run"); });
+});
+
+describe("resolveCollisions", () => {
+  const col = [{ x: 0, z: 0, r: 5 }];
+  it("leaves a point outside the collider untouched", () => {
+    const p = resolveCollisions(10, 0, col, 0.5);
+    expect(p.x).toBeCloseTo(10); expect(p.z).toBeCloseTo(0);
+  });
+  it("pushes an overlapping point out to the surface (r + body radius)", () => {
+    const p = resolveCollisions(3, 0, col, 0.5);
+    expect(Math.hypot(p.x, p.z)).toBeCloseTo(5.5);
+    expect(p.x).toBeGreaterThan(3); // pushed radially outward along +x
+  });
+  it("shoves a dead-centre point out instead of dividing by zero", () => {
+    const p = resolveCollisions(0, 0, col, 0.5);
+    expect(Math.hypot(p.x, p.z)).toBeCloseTo(5.5);
+  });
 });
