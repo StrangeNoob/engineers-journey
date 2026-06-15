@@ -21,8 +21,10 @@ a **cinematic camera** framing for the recall, and a lightweight **procedural au
    spot AND the tale panel opens (restyled as an unrolling parchment card with the career text).
 3. **Camera:** a subtle **cinematic framing on recall** (push-in toward Gandalf + scroll),
    returns to normal follow on close; honors `prefers-reduced-motion`.
-4. **Audio:** **procedural Web Audio** (no files) — ambient pad + footsteps + scroll rustle +
-   UI click, with a HUD mute toggle. A real CC0 track can be swapped into the ambient source later.
+4. **Audio:** **file-based** — user-supplied CC0 files in `public/assets/audio/`
+   (`ambient.ogg` looping bed; `footstep.ogg` (+ optional `footstep-1/2/3.ogg` variants);
+   `scroll.ogg`; `click.ogg`), played via Web Audio with a HUD mute toggle. Any missing file is
+   a silent no-op.
 
 ## Scope
 
@@ -33,10 +35,11 @@ In scope:
 - Optimize the 3 new 32 MB glbs and load only their clips onto the shared mesh.
 - Recall sequence: gesture + 3D scroll rise + unrolling tale panel + scroll rustle + cinematic
   camera; reverse on close; freeze movement while the panel is open.
-- Procedural audio engine + HUD mute toggle (persisted), gesture-gated start, reduced-motion aware.
+- File-based audio engine (loads CC0 files from `public/assets/audio/`) + HUD mute toggle
+  (persisted), gesture-gated start, reduced-motion aware, graceful when a file is absent.
 
 Out of scope:
-- Sourced/streamed music files (procedural for now; swap-in later).
+- Procedurally synthesized audio (using real files instead).
 - New character art/rig (clips already provided).
 - Positional/3D audio, footstep surface variation, voiceover.
 - Intro fly-in / free-look camera (camera = recall framing only).
@@ -79,13 +82,17 @@ both in frame), and restores the normal follow when off. Uses the existing
 frame-rate-independent lerp. Reduced-motion → snap, no animated move.
 
 ### New: `src/audio/audioEngine.ts`
-A small Web Audio engine:
+A small Web Audio engine that plays user-supplied files from `public/assets/audio/`:
 - Lazily creates/resumes an `AudioContext` on the first user gesture (pointer/key), per autoplay
-  rules.
-- `ambient()` — start a soft pad: 2–3 detuned oscillators → low-pass → slow LFO on gain, low level.
-- `footstep()`, `scroll()`, `click()` — short one-shot nodes (filtered noise burst / sweep / blip).
-- `setMuted(bool)` toggles a master gain; persisted to `localStorage` (`ej.muted`).
-- `prefers-reduced-motion` (or muted) → ambient stays silent; SFX suppressed.
+  rules; then fetches + `decodeAudioData` for each file, routed through a master gain.
+- Expected files (each optional — missing → that sound is a no-op): **`ambient.ogg`** (looped,
+  low gain), **`footstep.ogg`** (+ optional `footstep-1/2/3.ogg`, chosen at random),
+  **`scroll.ogg`**, **`click.ogg`**.
+- API: `ambient()` (start/stop the looping bed), `footstep()`, `scroll()`, `click()`,
+  `setMuted(bool)`.
+- `setMuted` toggles the master gain; persisted to `localStorage` (`ej.muted`). Default
+  unmuted, but nothing plays until the first user gesture starts the context.
+- `prefers-reduced-motion` (or muted) → ambient stays silent and SFX are suppressed.
 - A pure `footstepDue(distanceWalked, gait)` helper (testable) decides when to trigger a step
   from accumulated movement + cadence, so the loop just calls it.
 
@@ -121,6 +128,8 @@ proximity + E/tap
   build (errors logged per-builder); Gandalf still loads from the base mesh.
 - AudioContext blocked until gesture: ambient starts on first interaction; no errors if never
   started; mute persists.
+- Missing audio file (fetch/decode fails): that sound becomes a no-op; the rest of the game and
+  other sounds are unaffected (errors logged, not thrown).
 - Recall while the map is open / map open while a tale is shown: one modal at a time — opening
   the map closes an open tale panel and vice-versa (single overlay).
 - Reduced-motion: scroll reveal, panel unroll, and camera move all become instant; audio stays
@@ -142,6 +151,7 @@ DOM/audio/3D (panel unroll, scroll reveal, audio nodes, camera focus) verified i
 - Recall a tale → Gandalf gestures (listening), the 3D scroll rises at the spot, the parchment
   panel unrolls with the tale, a soft rustle plays, and the camera eases into frame; closing
   reverses it.
-- Footsteps play in time with walking/running; ambient pad hums; mute toggle silences all and
-  persists; reduced-motion makes motion instant and keeps audio off.
+- Footsteps play in time with walking/running; the ambient track loops; mute toggle silences
+  all and persists; reduced-motion makes motion instant and keeps audio off. With no audio files
+  present, the game runs silently with no errors.
 - `tsc` clean, all vitest green, build succeeds.
