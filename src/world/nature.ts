@@ -40,8 +40,27 @@ function roadDist(x: number, z: number): number {
 }
 
 /** InstancedMesh a model's first mesh `count` times via the placement callback. */
+// trees register here so we can hide the ones the camera gets too close to
+interface TreeBank { mesh: THREE.InstancedMesh; xz: number[]; base: THREE.Matrix4[]; hidden: boolean[]; }
+const treeBanks: TreeBank[] = [];
+const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+
+/** Hide tree instances within `r` of the camera (XZ) so the view never enters foliage. Per-frame. */
+export function cullTreesNearCamera(cx: number, cz: number, r = 3): void {
+  const r2 = r * r;
+  for (const b of treeBanks) {
+    let changed = false;
+    for (let i = 0; i < b.base.length; i++) {
+      const dx = b.xz[i * 2] - cx, dz = b.xz[i * 2 + 1] - cz;
+      const near = dx * dx + dz * dz < r2;
+      if (near !== b.hidden[i]) { b.mesh.setMatrixAt(i, near ? ZERO : b.base[i]); b.hidden[i] = near; changed = true; }
+    }
+    if (changed) b.mesh.instanceMatrix.needsUpdate = true;
+  }
+}
+
 async function instance(scene: THREE.Scene, name: string, count: number, fit: number,
-  place: (i: number, d: THREE.Object3D) => boolean): Promise<void> {
+  place: (i: number, d: THREE.Object3D) => boolean, opts: { sink?: number; cullable?: boolean } = {}): Promise<void> {
   const g = await loadGLTF(name);
   const src = firstMesh(g.scene);
   if (!src) return;
@@ -63,13 +82,19 @@ async function instance(scene: THREE.Scene, name: string, count: number, fit: nu
     if (!place(n, d)) continue;            // place sets x/z position, y-rotation, and a uniform scale
     const s = d.scale.x * base;            // final uniform scale
     d.scale.setScalar(s);
-    d.position.y = -bb.min.y * s;          // lift the base onto the ground (y=0)
+    d.position.y = -bb.min.y * s - (opts.sink ?? 0); // base on the ground, minus an optional sink
     d.updateMatrix();
     inst.setMatrixAt(n++, d.matrix);
   }
   inst.count = n;
   inst.instanceMatrix.needsUpdate = true;
   scene.add(inst);
+
+  if (opts.cullable) {                     // record base matrices + positions for camera culling
+    const xz: number[] = [], baseMats: THREE.Matrix4[] = [], m4 = new THREE.Matrix4(), v = new THREE.Vector3();
+    for (let i = 0; i < n; i++) { inst.getMatrixAt(i, m4); baseMats.push(m4.clone()); v.setFromMatrixPosition(m4); xz.push(v.x, v.z); }
+    treeBanks.push({ mesh: inst, xz, base: baseMats, hidden: new Array(n).fill(false) });
+  }
 }
 
 /** Forests (mallorn variants) + grass + scattered rocks + distant mountain backdrops. */
@@ -83,7 +108,7 @@ export async function scatterNature(scene: THREE.Scene, quality: Quality): Promi
       d.position.set(x, 0, z); d.rotation.y = rnd() * 6.283;
       d.scale.setScalar(0.8 + rnd() * 0.7);
       return true;
-    });
+    }, { sink: 0.7, cullable: true }); // tuck the dirt base into the ground; hide near the camera
   }
   await instance(scene, "grass-tuft", quality.grassCount, 0.5, (_, d) => { // ~knee-high tufts
     const a = rnd() * 6.283, r = Math.sqrt(rnd()) * 130;
@@ -93,10 +118,15 @@ export async function scatterNature(scene: THREE.Scene, quality: Quality): Promi
     d.rotation.y = rnd() * 6.283; d.scale.setScalar(0.7 + rnd() * 0.8);
     return true;
   });
-  await instance(scene, "mountain-backdrop", 14, 110, (_, d) => { // towering, distant
-    const a = rnd() * 6.283, r = 230 + rnd() * 70;
-    d.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
-    d.rotation.y = rnd() * 6.283; d.scale.setScalar(1 + rnd() * 0.8);
+  // distant mountain ring: an even circle of wide backdrop panels far enough out that they
+  // never reach the play area (player roams to ~r90; ring is at r340). fit=55 → ~55 m tall,
+  // ~205 m wide each, so 20 of them overlap into a continuous range on the horizon.
+  const RING = 20, RR = 340;
+  await instance(scene, "mountain-backdrop-square", RING, 55, (i, d) => {
+    const a = (i / RING) * Math.PI * 2;
+    d.position.set(Math.cos(a) * RR, 0, Math.sin(a) * RR);
+    d.rotation.y = -a;              // face the centre of the world
+    d.scale.setScalar(1);
     return true;
   });
 }
