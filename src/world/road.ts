@@ -1,8 +1,13 @@
 import * as THREE from "three";
 import { loadGLTF, toonify, fitToGround } from "./assets";
-import { ROAD_POINTS, BRIDGE_AT } from "../data/world";
+import { ROAD_POINTS, BRIDGE_AT, STOP_PLACEMENTS, ARGONATH } from "../data/world";
 
 type Pt = [number, number];
+
+// a road tile inside a building's footprint would disappear under it — stop at the gate instead
+function insideLandmark(x: number, z: number): boolean {
+  return [...STOP_PLACEMENTS, ARGONATH].some((p) => Math.hypot(x - p.x, z - p.z) < p.footprint * 0.45);
+}
 
 /** Pure: Chaikin corner-cutting smoothing; pins endpoints. */
 export function chaikin(points: Pt[], iterations: number): Pt[] {
@@ -33,6 +38,7 @@ export async function buildRoad(scene: THREE.Scene): Promise<void> {
   for (let i = 0; i <= n; i++) {
     const t = i / n;
     const p = curve.getPoint(t);
+    if (insideLandmark(p.x, p.z)) continue; // don't pave under a building
     const tan = curve.getTangent(t);
     const m = (tile.scene as unknown as THREE.Group).clone(true);
     toonify(m);

@@ -21,7 +21,8 @@ export function createScene(): THREE.Scene {
   // a moderate frustum that the follow-helper keeps centred on the player → crisp local shadows everywhere
   Object.assign(sun.shadow.camera, { left: -55, right: 55, top: 55, bottom: -55, near: 1, far: 200 });
   sun.shadow.bias = -0.0004;
-  scene.add(sun, sun.target, new THREE.HemisphereLight(0xbcd0dc, 0x65763f, 1.0), new THREE.AmbientLight(0xf1e9d2, 0.3));
+  // generous fill so shadowed building faces never read as near-black
+  scene.add(sun, sun.target, new THREE.HemisphereLight(0xcfe0e6, 0x6f7d4a, 1.35), new THREE.AmbientLight(0xf1e9d2, 0.5));
   return scene;
 }
 
