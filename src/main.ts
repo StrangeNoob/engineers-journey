@@ -10,6 +10,7 @@ import { placeLandmarks } from "./world/landmarks";
 import { buildRoad } from "./world/road";
 import { buildWater } from "./world/water";
 import { scatterNature, cullTreesNearCamera } from "./world/nature";
+import { buildGrassField } from "./world/grassField";
 import { buildAmbient } from "./world/ambient";
 import { Gandalf } from "./player/gandalf";
 import { FollowCamera } from "./player/followCamera";
@@ -57,8 +58,11 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
   // one shared list of solid footprints; every builder appends to it as its assets
   // load, and Gandalf is pushed out of any he overlaps each frame.
   const colliders = [...landmarks.colliders];
+  let grassWind: ((t: number) => void) | null = null;
+  let elapsed = 0;
 
   startLoop((dt) => {
+    elapsed += dt;
     input.beginFrame();
     // Move the player FIRST, then point the camera at the updated position. Updating the
     // camera before the move made it aim a frame behind where Gandalf is rendered, so the
@@ -67,6 +71,7 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
     followSun(scene, gandalf.root.position.x, gandalf.root.position.z);
     cam.update(gandalf.root.position, input, dt, landmarks.obstacles);
     cullTreesNearCamera(cam.camera.position.x, cam.camera.position.z, 5);
+    grassWind?.(elapsed);
     landmarks.update(gandalf.root.position);
     stops.update(gandalf.root.position, cam.camera, input);
     input.endFrame();
@@ -77,6 +82,7 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
   buildRoad(scene);
   buildWater(scene, colliders);
   scatterNature(scene, quality, colliders);
+  buildGrassField(scene, quality).then((u) => { grassWind = u; });
   buildAmbient(scene, colliders);
 })().catch((e) => { console.error(e); boot.querySelector(".lab")!.textContent = "Load error — see console"; });
 

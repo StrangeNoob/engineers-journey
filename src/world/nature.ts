@@ -23,12 +23,12 @@ const seed = { s: 91 };
 const rnd = () => (seed.s = (seed.s * 16807) % 2147483647) / 2147483647;
 
 // keep a clearing around every landmark sized to its (visual) footprint + a margin
-function inAClearing(x: number, z: number, margin: number): boolean {
+export function inAClearing(x: number, z: number, margin: number): boolean {
   return [...STOP_PLACEMENTS, ARGONATH].some((p) => Math.hypot(x - p.x, z - p.z) < p.footprint * 0.55 + margin);
 }
 
 // distance from (x,z) to the road polyline (min distance to any segment)
-function roadDist(x: number, z: number): number {
+export function roadDist(x: number, z: number): number {
   let best = Infinity;
   for (let i = 0; i < ROAD_POINTS.length - 1; i++) {
     const [ax, az] = ROAD_POINTS[i], [bx, bz] = ROAD_POINTS[i + 1];
@@ -128,14 +128,7 @@ export async function scatterNature(scene: THREE.Scene, quality: Quality, collid
       return true;
     }, { sink: 0.7, cullable: true, collide: { list: colliders, factor: 0.7 } }); // base in ground; solid trunk
   }
-  await instance(scene, "grass-tuft", quality.grassCount, 0.5, (_, d) => { // ~knee-high tufts
-    const a = rnd() * 6.283, r = Math.sqrt(rnd()) * 130;
-    const x = Math.cos(a) * r, z = Math.sin(a) * r;
-    if (inAClearing(x, z, -1) || roadDist(x, z) < 2.2) return false; // off the road + out of building footprints
-    d.position.set(x, 0, z);
-    d.rotation.y = rnd() * 6.283; d.scale.setScalar(0.7 + rnd() * 0.8);
-    return true;
-  });
+  // tall grass is its own billboard field (see world/grassField.ts) — replaces the old tufts.
   // distant mountain ring: an even circle of wide backdrop panels far enough out that they
   // never reach the play area (player roams to ~r90; ring is at r340). fit=55 → ~55 m tall,
   // ~205 m wide each, so 20 of them overlap into a continuous range on the horizon.
