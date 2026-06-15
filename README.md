@@ -1,5 +1,7 @@
 # An Engineer's Journey
 
+[![CI/CD](https://github.com/StrangeNoob/engineers-journey/actions/workflows/deploy.yml/badge.svg)](https://github.com/StrangeNoob/engineers-journey/actions/workflows/deploy.yml)
+
 A playable **Middle-earth portfolio** for **Prateek Kumar Mohanty** (SDE-II, backend engineer).
 You roam a stylized open world as **Gandalf the Grey**; six places each hold a "tale" — a
 chapter of the career. Walk up, *recall the tale*, and a scroll unfurls with the story.
