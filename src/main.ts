@@ -67,10 +67,11 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
 
   const fade = createFade();
   const map = new MapOverlay(
-    STOP_PLACEMENTS.map((p) => ({ id: p.id, name: content[p.id].locale, x: p.x, z: p.z })),
+    STOP_PLACEMENTS.map((p) => ({ id: p.id, name: content[p.id]?.locale ?? p.id, x: p.x, z: p.z })),
     journal,
     (id) => {
-      const p = STOP_PLACEMENTS.find((s) => s.id === id)!;
+      const p = STOP_PLACEMENTS.find((s) => s.id === id);
+      if (!p) { console.warn(`fast-travel: unknown stop "${id}"`); return; }
       const t = travelTarget(p.x, p.z);
       fade.teleport(() => { gandalf.root.position.set(t.x, 0, t.z); gandalf.root.rotation.y = t.faceY; });
     },
