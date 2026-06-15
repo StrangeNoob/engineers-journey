@@ -1,6 +1,6 @@
 import type { Stop } from "../data/career";
 
-const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const REDUCED = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export class TalePanel {
   private el = document.createElement("aside");

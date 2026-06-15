@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { loadGLTF, toonify, fitToHeight } from "./assets";
 
-const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const REDUCED = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export interface ScrollReveal {
   show(x: number, z: number, faceYaw: number): void;

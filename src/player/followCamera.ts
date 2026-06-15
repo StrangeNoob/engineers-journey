@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { Input } from "../engine/input";
 
-const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const REDUCED = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export class FollowCamera {
   readonly camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.1, 700);
