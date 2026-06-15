@@ -13,6 +13,7 @@ export class Hud {
     this.muteBtn.setAttribute("aria-label", "Toggle sound");
     this.muteBtn.style.cssText = `position:fixed;top:12px;right:104px;${btn}`;
     document.body.append(this.el, this.mapBtn, this.muteBtn);
+    this.setMuted(false);
   }
   set(count: number, total: number): void { this.el.textContent = `Tales recalled: ${count} / ${total}`; }
   onMap(fn: () => void): void { this.mapBtn.onclick = fn; }
