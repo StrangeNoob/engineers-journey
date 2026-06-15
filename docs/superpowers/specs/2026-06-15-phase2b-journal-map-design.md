@@ -109,7 +109,7 @@ transition). `fadeTeleport(applyMove)` fades to black, calls `applyMove()` at pe
 
 ## Data flow
 
-```
+```text
 data/world.ts (ROAD_POINTS, RIVER_POINTS, STOP_PLACEMENTS, ARGONATH)
         │                                   │
    mapBounds()/worldToMap()            travelTarget()

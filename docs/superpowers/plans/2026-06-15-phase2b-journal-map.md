@@ -12,6 +12,8 @@
 
 ---
 
+## Tasks
+
 ### Task 1: Map projection — bounds + worldToMap
 
 **Files:**
