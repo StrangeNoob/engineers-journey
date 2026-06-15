@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import type { Input } from "../engine/input";
 
+const REDUCED = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 export class FollowCamera {
   readonly camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.1, 700);
   private yaw = 0;
@@ -11,12 +13,18 @@ export class FollowCamera {
   private readonly dir = new THREE.Vector3();
   private readonly ray = new THREE.Raycaster();
 
+  private focused = false;
+  /** When on, the camera eases closer to frame the tale scroll; off restores normal follow. */
+  focus(on: boolean): void { this.focused = on; }
+
   get yawAngle(): number { return this.yaw; }
 
   /** Consume look deltas, orbit, trail the target, and pull in if a building blocks the view. */
   update(target: THREE.Vector3, input: Input, dt: number, obstacles: THREE.Object3D[] = []): void {
     this.yaw -= input.state.lookDX * 0.0035;
     this.pitch = THREE.MathUtils.clamp(this.pitch - input.state.lookDY * 0.0035, 0.12, 1.2);
+    const targetDist = this.focused ? 6.5 : 11;
+    this.dist += (targetDist - this.dist) * (REDUCED ? 1 : 1 - Math.exp(-dt * 5));
     const h = Math.sin(this.pitch) * this.dist;
     const r = Math.cos(this.pitch) * this.dist;
     const desired = this.tmp.set(

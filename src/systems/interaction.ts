@@ -23,21 +23,37 @@ export function nearestStop<T extends { id: string; x: number; z: number }>(
   return best;
 }
 
+/** The presentation effects the recall sequence drives (kept behind an interface so the
+ *  manager stays decoupled from the Gandalf/camera/audio/scroll concretes). */
+export interface RecallFx {
+  gandalf: { playGesture(name: "wave" | "listening", hold?: boolean): void; releaseGesture(): void };
+  scroll: { show(x: number, z: number, faceYaw: number): void; hide(): void };
+  camera: { focus(on: boolean): void };
+  audio: { scroll(): void };
+}
+
 /** Manages proximity prompts + tale panel across all stops. */
 export class StopManager {
   private prompt = new Prompt();
   private panel = new TalePanel();
   private flat: { id: string; x: number; z: number }[];
+  private lastX = 0;
+  private lastZ = 0;
   constructor(
     private readonly placed: PlacedStop[],
     private readonly content: Record<string, Stop>,
     private readonly journal: Journal,
     private readonly onChange: () => void,
+    private readonly fx: RecallFx,
   ) {
     this.flat = placed.map((p) => ({ id: p.id, x: p.collider.x, z: p.collider.z }));
   }
 
+  /** true while a tale panel is open (the main loop uses this to freeze movement). */
+  get isPanelOpen(): boolean { return this.panel.isOpen; }
+
   update(playerPos: THREE.Vector3, camera: THREE.Camera, input: Input): void {
+    this.lastX = playerPos.x; this.lastZ = playerPos.z;
     if (this.panel.isOpen) { this.prompt.hide(); return; }
     const near = nearestStop(playerPos.x, playerPos.z, this.flat, this.rangeFor());
     if (!near) { this.prompt.hide(); return; }
@@ -51,9 +67,19 @@ export class StopManager {
   private recall(id: string): void {
     const tale = this.content[id];
     if (!tale) { console.warn(`no tale content for stop "${id}"`); return; }
+    const ps = this.placed.find((p) => p.id === id)!;
+    const sx = ps.scrollPos.x, sz = ps.scrollPos.z;
     this.prompt.hide();
     this.journal.recall(id);
     this.onChange();
-    this.panel.open(tale, () => { /* closed */ });
+    this.fx.gandalf.playGesture("listening", true);          // hold the listening pose
+    this.fx.scroll.show(sx, sz, Math.atan2(this.lastX - sx, this.lastZ - sz)); // face the player
+    this.fx.audio.scroll();                                  // parchment rustle
+    this.fx.camera.focus(true);                              // cinematic push-in
+    this.panel.open(tale, () => {                            // unrolls; reversed on close
+      this.fx.camera.focus(false);
+      this.fx.scroll.hide();
+      this.fx.gandalf.releaseGesture();
+    });
   }
 }

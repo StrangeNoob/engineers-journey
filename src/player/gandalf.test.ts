@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cameraRelativeMove, pickGait, resolveCollisions } from "./gandalf";
+import { cameraRelativeMove, pickGait, resolveCollisions, gaitWeights } from "./gandalf";
 
 describe("cameraRelativeMove", () => {
   it("forward with yaw 0 goes -Z", () => {
@@ -20,6 +20,12 @@ describe("pickGait", () => {
   it("idle below walk threshold", () => { expect(pickGait(0.05, false)).toBe("idle"); });
   it("walk when moving, not running", () => { expect(pickGait(2, false)).toBe("walk"); });
   it("run when moving and run held", () => { expect(pickGait(2, true)).toBe("run"); });
+});
+
+describe("gaitWeights", () => {
+  it("idle -> only idle", () => { expect(gaitWeights("idle")).toEqual({ idle: 1, walk: 0, run: 0 }); });
+  it("walk -> only walk", () => { expect(gaitWeights("walk")).toEqual({ idle: 0, walk: 1, run: 0 }); });
+  it("run -> only run", () => { expect(gaitWeights("run")).toEqual({ idle: 0, walk: 0, run: 1 }); });
 });
 
 describe("resolveCollisions", () => {
