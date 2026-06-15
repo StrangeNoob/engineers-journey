@@ -3,6 +3,29 @@ import { loadGLTF, toonify, fitToGround } from "./assets";
 import { ROAD_POINTS, BRIDGE_AT } from "../data/world";
 
 type Pt = [number, number];
+type Collider = { x: number; z: number; r: number };
+
+// The arched stone bridge over the stream. Its deck floor rises to ~2.6 m at the
+// centre, so the player has to climb up and over it instead of walking through.
+// axis (ux,uz) = the road direction across the bridge, set once the road is built.
+const BRIDGE = { cx: BRIDGE_AT[0], cz: BRIDGE_AT[1], ux: 1, uz: 0, peak: 2.55, halfLen: 4.2, halfWidth: 1.6 };
+
+/** Deck height of the bridge at (x,z) — a parabolic arch along the road; 0 off the deck. */
+export function bridgeHeight(x: number, z: number): number {
+  const dx = x - BRIDGE.cx, dz = z - BRIDGE.cz;
+  const along = dx * BRIDGE.ux + dz * BRIDGE.uz;       // distance along the deck
+  const across = dx * BRIDGE.uz - dz * BRIDGE.ux;      // distance to either side
+  if (Math.abs(along) >= BRIDGE.halfLen || Math.abs(across) >= BRIDGE.halfWidth) return 0;
+  const t = along / BRIDGE.halfLen;
+  return BRIDGE.peak * (1 - t * t);
+}
+
+// is (x,z) on the bridge footprint? (used to skip flat road tiles there)
+function onBridge(x: number, z: number): boolean {
+  const dx = x - BRIDGE.cx, dz = z - BRIDGE.cz;
+  return Math.abs(dx * BRIDGE.ux + dz * BRIDGE.uz) < BRIDGE.halfLen + 0.5
+      && Math.abs(dx * BRIDGE.uz - dz * BRIDGE.ux) < BRIDGE.halfWidth + 0.5;
+}
 
 /** Pure: Chaikin corner-cutting smoothing; pins endpoints. */
 export function chaikin(points: Pt[], iterations: number): Pt[] {
@@ -21,11 +44,18 @@ export function chaikin(points: Pt[], iterations: number): Pt[] {
 }
 
 /** Lay road tiles along the smoothed spline + a bridge at the river crossing. */
-export async function buildRoad(scene: THREE.Scene): Promise<void> {
+export async function buildRoad(scene: THREE.Scene, colliders: Collider[] = []): Promise<void> {
   const curve = new THREE.CatmullRomCurve3(
     ROAD_POINTS.map(([x, z]) => new THREE.Vector3(x, 0, z)),
   );
   const len = curve.getLength();
+
+  // orient the deck along the road at the crossing: find the curve param nearest the bridge
+  let bu = 0, bbest = Infinity;
+  for (let i = 0; i <= 200; i++) { const u = i / 200; const q = curve.getPointAt(u); const d = Math.hypot(q.x - BRIDGE_AT[0], q.z - BRIDGE_AT[1]); if (d < bbest) { bbest = d; bu = u; } }
+  const ct = curve.getTangentAt(bu);
+  BRIDGE.ux = ct.x; BRIDGE.uz = ct.z;   // deck axis along the road
+
   const tile = await loadGLTF("road-straight");
   const TILE_LEN = 6;     // fit the tile's long (X) axis to 6 m
   const STEP = 5.2;       // < TILE_LEN so consecutive tiles overlap into a continuous road
@@ -35,6 +65,7 @@ export async function buildRoad(scene: THREE.Scene): Promise<void> {
     // sample by ARC LENGTH (getPointAt), not raw curve parameter (getPoint): Catmull-Rom
     // parameter spacing is uneven, which left some tiles bunched and others gapped.
     const p = curve.getPointAt(u);
+    if (onBridge(p.x, p.z)) continue;  // the raised bridge deck is the surface here, not a flat tile
     const tan = curve.getTangentAt(u);
     const m = (tile.scene as unknown as THREE.Group).clone(true);
     toonify(m);
@@ -48,10 +79,15 @@ export async function buildRoad(scene: THREE.Scene): Promise<void> {
   toonify(bm);
   fitToGround(bm, 8);
   bm.position.x = BRIDGE_AT[0]; bm.position.z = BRIDGE_AT[1]; bm.position.y += 0.1;
-  // orient the deck along the road at the crossing: find the curve param nearest the bridge
-  let bu = 0, bbest = Infinity;
-  for (let i = 0; i <= 200; i++) { const u = i / 200; const q = curve.getPointAt(u); const d = Math.hypot(q.x - BRIDGE_AT[0], q.z - BRIDGE_AT[1]); if (d < bbest) { bbest = d; bu = u; } }
-  const ct = curve.getTangentAt(bu);
   bm.rotation.y = Math.atan2(-ct.z, ct.x); // bridge deck runs along the road
   scene.add(bm);
+
+  // parapet colliders down both sides of the deck so the player stays on the bridge
+  const px = BRIDGE.uz, pz = -BRIDGE.ux;             // perpendicular (across) direction
+  for (let a = -BRIDGE.halfLen; a <= BRIDGE.halfLen; a += 1.1) {
+    for (const side of [-1, 1]) {
+      const off = side * 1.45;
+      colliders.push({ x: BRIDGE.cx + BRIDGE.ux * a + px * off, z: BRIDGE.cz + BRIDGE.uz * a + pz * off, r: 0.35 });
+    }
+  }
 }

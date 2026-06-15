@@ -7,7 +7,7 @@ import { Input } from "./engine/input";
 import { detectQuality } from "./engine/quality";
 import { createTerrain } from "./world/terrain";
 import { placeLandmarks } from "./world/landmarks";
-import { buildRoad } from "./world/road";
+import { buildRoad, bridgeHeight } from "./world/road";
 import { buildWater } from "./world/water";
 import { scatterNature, cullTreesNearCamera } from "./world/nature";
 import { buildGrassField } from "./world/grassField";
@@ -68,6 +68,7 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
     // camera before the move made it aim a frame behind where Gandalf is rendered, so the
     // character oscillated in screen space every frame (jitter) while walking.
     gandalf.update(dt, input.state, cam.yawAngle, colliders);
+    gandalf.root.position.y = bridgeHeight(gandalf.root.position.x, gandalf.root.position.z); // walk up & over the bridge
     followSun(scene, gandalf.root.position.x, gandalf.root.position.z);
     cam.update(gandalf.root.position, input, dt, landmarks.obstacles);
     cullTreesNearCamera(cam.camera.position.x, cam.camera.position.z, 5);
@@ -79,7 +80,7 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
   });
   hideBoot(boot);
 
-  buildRoad(scene);
+  buildRoad(scene, colliders);
   buildWater(scene, colliders);
   scatterNature(scene, quality, colliders);
   buildGrassField(scene, quality).then((u) => { grassWind = u; });

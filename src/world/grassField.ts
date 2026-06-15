@@ -1,6 +1,19 @@
 import * as THREE from "three";
 import type { Quality } from "../engine/quality";
 import { inAClearing, roadDist } from "./nature";
+import { RIVER_POINTS } from "../data/world";
+
+// min distance from (x,z) to the river polyline — keep grass out of the water
+function riverDist(x: number, z: number): number {
+  let best = Infinity;
+  for (let i = 0; i < RIVER_POINTS.length - 1; i++) {
+    const [ax, az] = RIVER_POINTS[i], [bx, bz] = RIVER_POINTS[i + 1];
+    const dx = bx - ax, dz = bz - az;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1)));
+    best = Math.min(best, Math.hypot(x - (ax + dx * t), z - (az + dz * t)));
+  }
+  return best;
+}
 
 // deterministic scatter so the field is identical every load
 const seed = { s: 1337 };
@@ -54,7 +67,7 @@ export async function buildGrassField(scene: THREE.Scene, quality: Quality): Pro
   const names = ["grass-1", "grass-2", "grass-4"];
   const texes = await Promise.all(names.map((n) => loader.loadAsync(`/assets/textures/${n}.png`)));
   const time = { value: 0 };
-  const total = quality.tier === "mobile" ? 2600 : 9000;
+  const total = quality.tier === "mobile" ? 3600 : 14000;
   const per = Math.floor(total / names.length);
   const d = new THREE.Object3D();
 
@@ -69,7 +82,7 @@ export async function buildGrassField(scene: THREE.Scene, quality: Quality): Pro
       guard++;
       const a = rnd() * 6.283, r = Math.pow(rnd(), 0.8) * 120; // a touch denser toward the centre
       const x = Math.cos(a) * r, z = Math.sin(a) * r;
-      if (inAClearing(x, z, -2) || roadDist(x, z) < 2.6) continue; // keep the road + doorsteps clear
+      if (inAClearing(x, z, -2) || roadDist(x, z) < 4 || riverDist(x, z) < 2.5) continue; // clear the road, doorsteps + stream
       const h = 1.2 + rnd() * 0.7;                                 // ~1.2–1.9 m tall — waist/chest high
       d.position.set(x, 0, z);
       d.rotation.y = rnd() * 6.283;
