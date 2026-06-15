@@ -15,7 +15,9 @@ export interface Quality {
 }
 
 export function detectQuality(): Quality {
-  const tier = pickTier(matchMedia("(pointer:coarse)").matches, navigator.hardwareConcurrency || 8);
+  // fall back to a conservative core count so browsers without hardwareConcurrency
+  // (very old) default to the lighter mobile tier rather than desktop.
+  const tier = pickTier(matchMedia("(pointer:coarse)").matches, navigator.hardwareConcurrency || 4);
   return tier === "mobile"
     ? { tier, pixelRatio: Math.min(devicePixelRatio, 1.6), drawDistance: 140, treeCount: 80, grassCount: 800, shadows: false }
     : { tier, pixelRatio: Math.min(devicePixelRatio, 2), drawDistance: 380, treeCount: 220, grassCount: 2600, shadows: true };
