@@ -22,6 +22,11 @@ export function pickGait(speed: number, run: boolean): Gait {
   return run ? "run" : "walk";
 }
 
+/** Pure: target blend weights for the locomotion clips given a gait. */
+export function gaitWeights(gait: Gait): { idle: number; walk: number; run: number } {
+  return { idle: gait === "idle" ? 1 : 0, walk: gait === "walk" ? 1 : 0, run: gait === "run" ? 1 : 0 };
+}
+
 /** A solid circular footprint on the ground plane. */
 export interface Collider { x: number; z: number; r: number; }
 
@@ -53,31 +58,45 @@ const BODY_RADIUS = 0.5;   // Gandalf's collision footprint (metres)
 export class Gandalf {
   readonly root = new THREE.Group();
   private mixer!: THREE.AnimationMixer;
-  private actions: Record<"walk" | "run", THREE.AnimationAction> = {} as never;
-  private current: Gait = "idle";
+  private loco!: Record<Gait, THREE.AnimationAction>;
+  private gestures!: Record<"wave" | "listening", THREE.AnimationAction>;
+  private active: THREE.AnimationAction | null = null; // current gesture, if any
+  private gestureTarget = 0;                            // 0 = fade out, 1 = fade in
+  private hold = false;                                 // keep the gesture's end pose until released
 
   async load(): Promise<void> {
-    const walk = await loadGLTF("gandalf-walk");
-    const run = await loadGLTF("gandalf-run");
+    const [walk, run, idle, listening, wave] = await Promise.all([
+      loadGLTF("gandalf-walk"), loadGLTF("gandalf-run"), loadGLTF("gandalf-idle"),
+      loadGLTF("gandalf-listening"), loadGLTF("gandalf-one-hand-wave"),
+    ]);
     const mesh = walk.scene;
     toonify(mesh);
     this.root.add(mesh);
 
-    const walkClip = walk.animations[0], runClip = run.animations[0];
-    if (!walkClip || !runClip) throw new Error("Gandalf rig is missing walk/run animation clips");
+    const clip = (g: typeof walk, label: string): THREE.AnimationClip => {
+      const c = g.animations[0];
+      if (!c) throw new Error(`Gandalf ${label} clip missing`);
+      return c;
+    };
     this.mixer = new THREE.AnimationMixer(mesh);
-    // bone names match across rigs, so the run clip plays on this mixer.
-    this.actions.walk = this.mixer.clipAction(walkClip);
-    this.actions.run = this.mixer.clipAction(runClip);
-    this.actions.walk.play(); this.actions.walk.weight = 1; // base layer (frozen when idle)
-    this.actions.run.play(); this.actions.run.weight = 0;
+    // every clip shares the rig's bone names, so they all retarget onto this mesh's mixer.
+    this.loco = {
+      idle: this.mixer.clipAction(clip(idle, "idle")),
+      walk: this.mixer.clipAction(clip(walk, "walk")),
+      run: this.mixer.clipAction(clip(run, "run")),
+    };
+    this.gestures = {
+      wave: this.mixer.clipAction(clip(wave, "wave")),
+      listening: this.mixer.clipAction(clip(listening, "listening")),
+    };
+    (["idle", "walk", "run"] as Gait[]).forEach((k) => { this.loco[k].play(); this.loco[k].weight = k === "idle" ? 1 : 0; });
+    // a finished gesture that isn't being held fades back to locomotion
+    this.mixer.addEventListener("finished", (e) => {
+      if (e.action === this.active && !this.hold) this.gestureTarget = 0;
+    });
 
-    // Size + ground from the ANIMATED skinned pose, never from Box3.setFromObject:
-    // setFromObject reads the raw (unskinned) vertex positions, which for this Mixamo
-    // rig are ~2.9x smaller than the bind/skeleton-transformed mesh — that under-measure
-    // is what blew Gandalf up to ~5.5 m and left him floating. Apply the idle pose,
-    // measure the real pose-aware bounds, scale to 1.9 m, then drop the soles to y=0.
-    this.actions.walk.setEffectiveTimeScale(0);
+    // Size + ground from the ANIMATED idle pose (pose-aware; Box3.setFromObject under-measures
+    // this rig). Apply the idle frame, measure real skinned bounds, scale to 1.9 m, drop soles to 0.
     this.mixer.update(0);
     const poseBox = () => {
       this.root.updateMatrixWorld(true);
@@ -93,9 +112,20 @@ export class Gandalf {
     const raw = poseBox();
     const k = 1.9 / (raw.max.y - raw.min.y || 1);
     mesh.scale.setScalar(k);
-    const grounded = poseBox();           // re-measure at final scale
+    const grounded = poseBox();
     if (!grounded.isEmpty()) mesh.position.y -= grounded.min.y;
   }
+
+  /** Play a one-shot gesture. hold=true keeps the end pose until releaseGesture(). */
+  playGesture(name: "wave" | "listening", hold = false): void {
+    const a = this.gestures[name];
+    a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true;
+    a.weight = 0; a.play();
+    this.active = a; this.gestureTarget = 1; this.hold = hold;
+  }
+
+  /** Release a held gesture (e.g. listening) back to locomotion. */
+  releaseGesture(): void { this.gestureTarget = 0; this.hold = false; }
 
   /** Move + animate. Returns horizontal speed. */
   update(dt: number, input: InputState, camYaw: number, colliders: Collider[] = []): number {
@@ -104,20 +134,27 @@ export class Gandalf {
     const speed = moving ? (input.run ? RUN_SPEED : WALK_SPEED) : 0;
     this.root.position.x += dir.x * speed * dt;
     this.root.position.z += dir.z * speed * dt;
-    // block walking through solid landmarks: push the body back out of any collider
     if (colliders.length) {
       const p = resolveCollisions(this.root.position.x, this.root.position.z, colliders, BODY_RADIUS);
       this.root.position.x = p.x; this.root.position.z = p.z;
     }
     if (moving) this.root.rotation.y = Math.atan2(dir.x, dir.z);
 
-    const gait = pickGait(speed, input.run);
-    if (gait !== this.current) this.current = gait;
-    // Idle: freeze the walk clip (arms at sides) instead of falling back to the T-pose.
-    // Walk is the base layer (weight 1); running blends the run clip over it.
-    this.actions.walk.setEffectiveTimeScale(gait === "idle" ? 0 : 1);
-    const wRun = gait === "run" ? 1 : 0;
-    this.actions.run.weight += (wRun - this.actions.run.weight) * Math.min(1, dt * 10);
+    if (this.active && speed > 0.1) { this.gestureTarget = 0; this.hold = false; } // movement wins
+
+    let gWeight = 0;
+    if (this.active) {
+      this.active.weight += (this.gestureTarget - this.active.weight) * Math.min(1, dt * 8);
+      gWeight = this.active.weight;
+      if (this.gestureTarget === 0 && gWeight < 0.02) { this.active.weight = 0; this.active.stop(); this.active = null; gWeight = 0; }
+    }
+
+    const t = gaitWeights(pickGait(speed, input.run));
+    const lerp = (a: THREE.AnimationAction, target: number) => { a.weight += (target - a.weight) * Math.min(1, dt * 10); };
+    lerp(this.loco.idle, t.idle * (1 - gWeight));
+    lerp(this.loco.walk, t.walk * (1 - gWeight));
+    lerp(this.loco.run, t.run * (1 - gWeight));
+
     this.mixer.update(dt);
     return speed;
   }
