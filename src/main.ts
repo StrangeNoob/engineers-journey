@@ -12,7 +12,7 @@ import { buildWater } from "./world/water";
 import { scatterNature, cullTreesNearCamera } from "./world/nature";
 import { buildGrassField } from "./world/grassField";
 import { buildAmbient } from "./world/ambient";
-import { Gandalf } from "./player/gandalf";
+import { Gandalf, pickGait } from "./player/gandalf";
 import { FollowCamera } from "./player/followCamera";
 import { Journal } from "./systems/journal";
 import { StopManager } from "./systems/interaction";
@@ -23,6 +23,8 @@ import { MapOverlay } from "./ui/mapOverlay";
 import { createFade } from "./ui/fade";
 import { travelTarget } from "./world/mapProjection";
 import { STOP_PLACEMENTS } from "./data/world";
+import { buildScrollReveal } from "./world/scrollReveal";
+import { AudioEngine, footstepDue } from "./audio/audioEngine";
 
 const app = document.getElementById("app")!;
 const boot = showBoot();
@@ -47,6 +49,13 @@ const journal = new Journal(STOPS.map((s) => s.id));
 const hud = new Hud();
 hud.set(journal.count, journal.total);
 
+const audio = new AudioEngine();
+hud.setMuted(audio.isMuted);
+hud.onMute(() => { audio.setMuted(!audio.isMuted); hud.setMuted(audio.isMuted); });
+// AudioContext can only start after a user gesture (autoplay policy)
+addEventListener("pointerdown", () => void audio.start(), { once: true });
+addEventListener("keydown", () => void audio.start(), { once: true });
+
 const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.map((s) => [s.id, s]));
 
 (async () => {
@@ -54,10 +63,14 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
   gandalf.root.position.set(-59, 0, 49);      // at the start of the road, by the Shire's gate
   gandalf.root.rotation.y = Math.atan2(8, -43); // facing down the road toward Bywater
   scene.add(gandalf.root);
+  gandalf.playGesture("wave");
 
   const landmarks = placeLandmarks(scene);
   landmarks.update(gandalf.root.position);
-  const stops = new StopManager(landmarks.stops, content, journal, () => hud.set(journal.count, journal.total));
+  const scroll = await buildScrollReveal(scene);
+  const stops = new StopManager(landmarks.stops, content, journal, () => hud.set(journal.count, journal.total), {
+    gandalf, scroll, camera: cam, audio,
+  });
 
   // one shared list of solid footprints; every builder appends to it as its assets
   // load, and Gandalf is pushed out of any he overlaps each frame.
@@ -77,27 +90,35 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
     },
   );
   map.setButton(hud.mapBtn);
-  hud.onMap(() => map.open(gandalf.root.position.x, gandalf.root.position.z));
+  hud.onMap(() => { audio.click(); map.open(gandalf.root.position.x, gandalf.root.position.z); });
   addEventListener("keydown", (e) => {
     if (e.code !== "KeyM" || e.repeat) return;
     if (map.isOpen) map.close();
-    else map.open(gandalf.root.position.x, gandalf.root.position.z);
+    else { audio.click(); map.open(gandalf.root.position.x, gandalf.root.position.z); }
   });
 
+  let footDist = 0;
   startLoop((dt) => {
     elapsed += dt;
     input.beginFrame();
     if (!map.isOpen) {
+      const frozen = stops.isPanelOpen; // tale open: stop walking, keep animating + camera easing
+      const moveInput = frozen ? { ...input.state, move: { forward: 0, right: 0 }, run: false } : input.state;
       // Move the player FIRST, then point the camera at the updated position (avoids the
       // one-frame camera lag that caused screen jitter while walking).
-      gandalf.update(dt, input.state, cam.yawAngle, colliders);
-      gandalf.root.position.y = bridgeHeight(gandalf.root.position.x, gandalf.root.position.z);
+      const speed = gandalf.update(dt, moveInput, cam.yawAngle, colliders);
+      if (!frozen) gandalf.root.position.y = bridgeHeight(gandalf.root.position.x, gandalf.root.position.z);
       followSun(scene, gandalf.root.position.x, gandalf.root.position.z);
       cam.update(gandalf.root.position, input, dt, landmarks.obstacles);
       cullTreesNearCamera(cam.camera.position.x, cam.camera.position.z, 5);
       grassWind?.(elapsed);
+      scroll.update(dt);
       landmarks.update(gandalf.root.position);
       stops.update(gandalf.root.position, cam.camera, input);
+      if (!frozen) {
+        footDist += speed * dt;
+        if (footstepDue(footDist, pickGait(speed, input.state.run))) { audio.footstep(); footDist = 0; }
+      }
     }
     input.endFrame();
     renderer.render(scene, cam.camera);
