@@ -44,7 +44,7 @@ export class AudioEngine {
   ambient(): void { if (!this.ambientOn && this.play("ambient", 0.35, true)) this.ambientOn = true; }
   footstep(): void {
     const v = ["footstep-1", "footstep-2", "footstep-3"].filter((n) => this.buffers[n]);
-    this.play(v.length ? v[Math.floor(Math.random() * v.length)] : "footstep", 0.5);
+    this.play(v.length ? v[Math.floor(Math.random() * v.length)] : "footstep", 0.1);
   }
   scroll(): void { this.play("scroll", 0.6); }
   click(): void { this.play("click", 0.5); }
