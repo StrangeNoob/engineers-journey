@@ -22,8 +22,33 @@ export function pickGait(speed: number, run: boolean): Gait {
   return run ? "run" : "walk";
 }
 
+/** A solid circular footprint on the ground plane. */
+export interface Collider { x: number; z: number; r: number; }
+
+/**
+ * Pure: push (x,z) out of any overlapping collider so a body of `radius`
+ * never sits inside one. Two relaxation passes so sliding into a corner
+ * (resolving one circle pushes into another) still settles. Returns the
+ * corrected position.
+ */
+export function resolveCollisions(x: number, z: number, colliders: Collider[], radius: number): { x: number; z: number } {
+  for (let pass = 0; pass < 2; pass++) {
+    for (const c of colliders) {
+      const dx = x - c.x, dz = z - c.z;
+      const min = c.r + radius;
+      const d2 = dx * dx + dz * dz;
+      if (d2 >= min * min) continue;
+      const d = Math.sqrt(d2);
+      if (d > 1e-4) { const k = (min - d) / d; x += dx * k; z += dz * k; }
+      else { x = c.x + min; }   // dead-centre: shove out along +x
+    }
+  }
+  return { x, z };
+}
+
 const WALK_SPEED = 2.6;
 const RUN_SPEED = 5.6;
+const BODY_RADIUS = 0.5;   // Gandalf's collision footprint (metres)
 
 export class Gandalf {
   readonly root = new THREE.Group();
@@ -73,12 +98,17 @@ export class Gandalf {
   }
 
   /** Move + animate. Returns horizontal speed. */
-  update(dt: number, input: InputState, camYaw: number): number {
+  update(dt: number, input: InputState, camYaw: number, colliders: Collider[] = []): number {
     const dir = cameraRelativeMove(input.move.forward, input.move.right, camYaw);
     const moving = dir.x !== 0 || dir.z !== 0;
     const speed = moving ? (input.run ? RUN_SPEED : WALK_SPEED) : 0;
     this.root.position.x += dir.x * speed * dt;
     this.root.position.z += dir.z * speed * dt;
+    // block walking through solid landmarks: push the body back out of any collider
+    if (colliders.length) {
+      const p = resolveCollisions(this.root.position.x, this.root.position.z, colliders, BODY_RADIUS);
+      this.root.position.x = p.x; this.root.position.z = p.z;
+    }
     if (moving) this.root.rotation.y = Math.atan2(dir.x, dir.z);
 
     const gait = pickGait(speed, input.run);

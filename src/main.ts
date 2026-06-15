@@ -59,7 +59,7 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
     followSun(scene, gandalf.root.position.x, gandalf.root.position.z);
     cam.update(gandalf.root.position, input, dt, landmarks.obstacles);
     cullTreesNearCamera(cam.camera.position.x, cam.camera.position.z, 5);
-    gandalf.update(dt, input.state, cam.yawAngle);
+    gandalf.update(dt, input.state, cam.yawAngle, landmarks.colliders);
     landmarks.update(gandalf.root.position);
     stops.update(gandalf.root.position, cam.camera, input);
     input.endFrame();
