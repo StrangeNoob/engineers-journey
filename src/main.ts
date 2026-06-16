@@ -1,5 +1,5 @@
 import "./styles/main.css";
-import { STOPS } from "./data/career";
+import { STOPS, CONTACT } from "./data/career";
 import { createRenderer } from "./engine/renderer";
 import { createScene, followSun } from "./engine/scene";
 import { startLoop } from "./engine/loop";
@@ -25,6 +25,7 @@ import { travelTarget } from "./world/mapProjection";
 import { STOP_PLACEMENTS } from "./data/world";
 import { buildScrollReveal } from "./world/scrollReveal";
 import { AudioEngine, footstepDue } from "./audio/audioEngine";
+import { mountIntro } from "./ui/intro";
 
 const app = document.getElementById("app")!;
 const boot = showBoot();
@@ -35,6 +36,10 @@ renderer.setPixelRatio(quality.pixelRatio);
 renderer.shadowMap.enabled = quality.shadows;
 app.appendChild(renderer.domElement);
 renderer.domElement.style.touchAction = "none";
+// label the canvas for assistive tech, and point it at the accessible map path
+renderer.domElement.setAttribute("role", "img");
+renderer.domElement.setAttribute("aria-label",
+  "Interactive 3D Middle-earth. Walk Gandalf between six villages, each recalling a career chapter. Press M to open an accessible map and jump to any chapter.");
 
 const scene = createScene();
 createTerrain(scene, quality);
@@ -125,6 +130,7 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
     renderer.render(scene, cam.camera);
   });
   hideBoot(boot);
+  mountIntro(CONTACT.resume); // first-visit control legend + a "skip to résumé" link
 
   // stream in the rest of the world after first paint; let each builder finish
   // independently and report exactly which one failed (a missing asset shouldn't
