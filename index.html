@@ -20,10 +20,34 @@
   <meta property="og:type" content="website" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:image" content="https://journey.prateekm.dev/assets/img/og-image.jpg" />
+  <style>
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  </style>
 </head>
 
 <body>
-  <div id="app"></div>
+  <h1 class="sr-only">An Engineer's Journey — Prateek Kumar Mohanty, backend software engineer (SDE-II)</h1>
+  <main id="app"></main>
+  <!-- Fallback for no-JS users and crawlers. Mirrors src/data/career.ts. -->
+  <noscript>
+    <div style="max-width:760px;margin:40px auto;padding:0 20px;font-family:Georgia,serif;color:#2e2a22;line-height:1.6">
+      <h2>Prateek Kumar Mohanty — Backend Engineer (SDE-II)</h2>
+      <p>This portfolio is an interactive 3D experience that needs JavaScript. The résumé in brief:</p>
+      <ul>
+        <li><strong>The Shire</strong> — B.Tech IT, OURT Bhubaneswar (2018–2022)</li>
+        <li><strong>Milk Mantra</strong> — SDE Intern (2020–2021): 3 payment gateways in the MilkyMoo app; zero to App Store in 3 months</li>
+        <li><strong>Aarna</strong> — Product Developer (2021–2022): crypto portfolio dashboard (10+ tokens, 5+ exchanges, 4 chains); Redis cut third-party calls 50%</li>
+        <li><strong>Frifty</strong> — Product Lead (2022–2023): AWS + MongoDB Atlas from scratch; 50+ component design system; React bundle optimization</li>
+        <li><strong>Dextr Labs</strong> — Full Stack (2023–2024): realtime fantasy-sports backend (GraphQL, Redis, AWS Step Functions, SSE); RWA NFT platform; CI/CD 45→10 min</li>
+        <li><strong>Pathfndr</strong> — SDE-II (2025–present): hotel-search p95 20s→300–700ms (60×); 3 microservices on GCP GKE; production RAG (Pinecone + OpenAI)</li>
+      </ul>
+      <p>
+        <a href="https://prateekm.dev/pdf/Prateek%20Kumar%20Mohanty.pdf">Download résumé (PDF)</a>
+        · <a href="https://github.com/StrangeNoob">GitHub</a>
+        · itsprateekmohanty@gmail.com
+      </p>
+    </div>
+  </noscript>
   <script type="module" src="/src/main.ts"></script>
 </body>
 
