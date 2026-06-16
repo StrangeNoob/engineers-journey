@@ -103,8 +103,7 @@ export const CONTACT = {
   role: "Backend Engineer · SDE-II",
   email: "itsprateekmohanty@gmail.com",
   github: "https://github.com/StrangeNoob",
-  resume:
-    "https://portfolio-one-murex-75.vercel.app/pdf/Prateek%20Kumar%20Mohanty.pdf",
+  resume: "https://prateekm.dev/pdf/Prateek%20Kumar%20Mohanty.pdf",
   // LINKEDIN_URL TODO — Prateek to supply
   linkedin: "",
 };
