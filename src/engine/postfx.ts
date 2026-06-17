@@ -81,7 +81,7 @@ export function createPostFX(
     // Use cocMaterial.focusRange (the typed property accessor) to control
     // depth-of-field intensity. Widening focusRange deepens the blur when
     // a tale panel is open.
-    setFocus: (active) => { dof.cocMaterial.focusRange = active ? 8.0 : 2.0; },
+    setFocus: (active) => { if (flags.dof) dof.cocMaterial.focusRange = active ? 8.0 : 2.0; },
     dispose: () => composer.dispose(),
   };
 }
