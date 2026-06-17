@@ -32,10 +32,10 @@ export async function createEnvironment(
 ): Promise<Environment> {
   // 1. Image-based lighting: try HDRI, fall back to RoomEnvironment if missing.
   const pmrem = new THREE.PMREMGenerator(renderer);
-  pmrem.compileEquirectangularShader();
 
   let envRT: THREE.WebGLRenderTarget;
   try {
+    pmrem.compileEquirectangularShader();
     const hdr = await new RGBELoader().loadAsync("/assets/env/golden_hour_2k.hdr");
     hdr.mapping = THREE.EquirectangularReflectionMapping;
     envRT = pmrem.fromEquirectangular(hdr);
@@ -46,7 +46,9 @@ export async function createEnvironment(
       "[environment] HDRI /assets/env/golden_hour_2k.hdr not found — using RoomEnvironment placeholder IBL.",
     );
     pmrem.compileCubemapShader();
-    envRT = pmrem.fromScene(new RoomEnvironment(), 0.04);
+    const roomEnv = new RoomEnvironment();
+    envRT = pmrem.fromScene(roomEnv, 0.04);
+    roomEnv.dispose();
     pmrem.dispose();
   }
 
