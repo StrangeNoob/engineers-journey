@@ -32,7 +32,7 @@ export function lerpProfile(base: RegionProfile, region: RegionProfile, t: numbe
   };
 }
 
-export interface Atmosphere { update(x: number, z: number): void; dispose(): void }
+export interface Atmosphere { update(x: number, z: number, dt: number): void; dispose(): void }
 
 /** Loads region LUTs (DEFAULT for any that fail) and, per frame, blends fog + exposure
  *  + the dual-LUT mix between DEFAULT and the nearest region by proximity weight. */
@@ -55,26 +55,43 @@ export async function createAtmosphere(
   const fog = scene.fog as THREE.Fog;
   const baseFar = Math.min(DEFAULT_PROFILE.fog.far, drawDistance);
   let activeId = "";
+  let displayMix = 0; // the mix actually applied; eased toward the goal each frame
 
   return {
-    update(x, z) {
+    update(x, z, dt) {
       const near = nearestRegion(x, z);
-      const t = near ? regionWeight(near.dist, near.region.radius, near.region.falloff) : 0;
       const region = near?.region;
-      // swap the region LUT while the mix is ~0 (player in travel space)
-      if (!region) {
-        activeId = "";
-      } else if (region.id !== activeId && t < 0.02) {
-        const tex = lutFor.get(region.id);
-        if (tex) postfx.setRegionLUT(tex);
-        activeId = region.id;
+      const spatialT = region ? regionWeight(near.dist, region.radius, region.falloff) : 0;
+      const targetId = region?.id ?? "";
+
+      // Decouple WHICH region LUT is in slot B from the spatial weight. When the nearest
+      // region changes, first ease the mix down to the DEFAULT grade, swap the LUT while
+      // it's hidden, then ramp back up — so every region shows its OWN grade even when
+      // adjacent regions touch (no low-weight travel gap exists between close regions).
+      let goal: number;
+      if (targetId !== activeId) {
+        if (displayMix < 0.02) {
+          if (region) { const tex = lutFor.get(region.id); if (tex) postfx.setRegionLUT(tex); }
+          activeId = targetId;
+          goal = spatialT;
+        } else {
+          goal = 0; // dip toward DEFAULT before the swap
+        }
+      } else {
+        goal = spatialT;
       }
-      const blended = region ? lerpProfile(DEFAULT_PROFILE, region, t) : { fog: DEFAULT_PROFILE.fog, exposure: DEFAULT_PROFILE.exposure };
+      // frame-rate-independent easing toward the goal
+      displayMix += (goal - displayMix) * Math.min(1, dt * 4);
+      postfx.setLutMix(displayMix);
+
+      // Fog + exposure follow the live nearest region, independent of the LUT swap.
+      const blended = region
+        ? lerpProfile(DEFAULT_PROFILE, region, spatialT)
+        : { fog: DEFAULT_PROFILE.fog, exposure: DEFAULT_PROFILE.exposure };
       fog.color.setHex(blended.fog.color);
       fog.near = blended.fog.near;
       fog.far = Math.min(blended.fog.far, drawDistance) || baseFar;
       postfx.setExposure(blended.exposure);
-      postfx.setLutMix(t);
     },
     dispose() {
       defaultLut?.dispose();

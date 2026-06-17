@@ -162,7 +162,7 @@ let postfx: PostFX | null = null;
       // one-frame camera lag that caused screen jitter while walking).
       const speed = gandalf.update(dt, moveInput, cam.yawAngle, colliders);
       if (!frozen) gandalf.root.position.y = bridgeHeight(gandalf.root.position.x, gandalf.root.position.z);
-      atmosphere.update(gandalf.root.position.x, gandalf.root.position.z);
+      atmosphere.update(gandalf.root.position.x, gandalf.root.position.z, dt);
       environment.update(gandalf.root.position.x, gandalf.root.position.z);
       cam.update(gandalf.root.position, input, dt, landmarks.obstacles);
       cullTreesNearCamera(cam.camera.position.x, cam.camera.position.z, 5);

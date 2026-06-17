@@ -14,7 +14,9 @@ export interface RegionProfile {
 
 export interface Region extends RegionProfile { center: { x: number; z: number } }
 
-/** Travel / Shire / Bywater: the warm lush-green base grade (matches the M1 default). */
+/** Travel / Shire / Bywater: the warm lush-green base grade (matches the M1 default).
+ *  radius/falloff are 0 intentionally — DEFAULT is never a REGIONS entry, so its
+ *  falloff is never used as a divisor in regionWeight. */
 export const DEFAULT_PROFILE: RegionProfile = {
   id: "", radius: 0, falloff: 0,
   lut: "golden-hour.cube",
