@@ -72,11 +72,21 @@ export function createPostFX(
     }
   };
 
-  const effects = buildEffectChain(flags)
-    .filter((s) => s.enabled)
-    .map(make)
-    .filter((e): e is NonNullable<typeof e> => e !== null);
-  composer.addPass(new EffectPass(camera, ...effects));
+  // postprocessing allows at most ONE convolution effect per EffectPass. Give each
+  // convolution effect its own pass and merge consecutive non-convolution effects
+  // (tonemap/lut/vignette/grain) into a single pass — preserving the chain order.
+  const CONVOLUTION = new Set<EffectId>(["ssao", "bloom", "dof", "chromaticAberration", "smaa"]);
+  let buffer: NonNullable<ReturnType<typeof make>>[] = [];
+  const flush = () => {
+    if (buffer.length) { composer.addPass(new EffectPass(camera, ...buffer)); buffer = []; }
+  };
+  for (const step of buildEffectChain(flags).filter((s) => s.enabled)) {
+    const effect = make(step);
+    if (!effect) continue;
+    if (CONVOLUTION.has(step.id)) { flush(); composer.addPass(new EffectPass(camera, effect)); }
+    else buffer.push(effect);
+  }
+  flush();
 
   return {
     render: (dt) => composer.render(dt),
