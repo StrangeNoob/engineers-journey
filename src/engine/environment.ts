@@ -80,14 +80,6 @@ export async function createEnvironment(
       camera,
     });
     csm.fade = true;
-    // Register every shadow-receiving standard material with CSM.
-    scene.traverse((o) => {
-      const mesh = o as THREE.Mesh;
-      const mat = mesh.material as THREE.Material | undefined;
-      if (mat && (mat as THREE.MeshStandardMaterial).isMeshStandardMaterial) {
-        csm!.setupMaterial(mat);
-      }
-    });
   } else {
     sun = new THREE.DirectionalLight(0xffe7bf, 2.0);
     sun.position.copy(SUN_OFFSET);
@@ -97,6 +89,22 @@ export async function createEnvironment(
     sun.shadow.bias = -0.0004;
     scene.add(sun, sun.target);
   }
+
+  // Register every MeshStandardMaterial under `root` with CSM (handles multi-material meshes).
+  const registerCsm = (root: THREE.Object3D): void => {
+    if (!csm) return;
+    root.traverse((o) => {
+      const mat = (o as THREE.Mesh).material;
+      if (!mat) return;
+      const mats = Array.isArray(mat) ? mat : [mat];
+      for (const m of mats) {
+        if ((m as THREE.MeshStandardMaterial).isMeshStandardMaterial) csm.setupMaterial(m);
+      }
+    });
+  };
+
+  // Register all materials in the scene with CSM on setup.
+  registerCsm(scene);
 
   return {
     update(x: number, z: number) {
@@ -115,11 +123,7 @@ export async function createEnvironment(
       scene.environment = null;
     },
     registerShadows(root: THREE.Object3D) {
-      if (!csm) return;
-      root.traverse((o) => {
-        const m = (o as THREE.Mesh).material as THREE.Material | undefined;
-        if (m && (m as THREE.MeshStandardMaterial).isMeshStandardMaterial) csm!.setupMaterial(m);
-      });
+      registerCsm(root);
     },
   };
 }
