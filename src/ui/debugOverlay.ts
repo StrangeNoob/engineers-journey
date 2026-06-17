@@ -20,8 +20,11 @@ export class FrameMeter {
 
 export interface DebugOverlay { tick(dtSeconds: number): void; destroy(): void }
 
-/** Toggle with `?debug` in the URL or the backtick key. Shown only when enabled. */
+let activeOverlay: DebugOverlay | null = null;
+
+/** Mounts the debug overlay. Idempotent — a prior mount is torn down first. Toggle with backtick or ?debug. */
 export function mountDebugOverlay(opts: { level: QualityLevel; onLevel(l: QualityLevel): void }): DebugOverlay {
+  activeOverlay?.destroy();
   const meter = new FrameMeter(60);
   const el = document.createElement("div");
   el.style.cssText =
@@ -39,11 +42,17 @@ export function mountDebugOverlay(opts: { level: QualityLevel; onLevel(l: Qualit
   const key = (e: KeyboardEvent) => { if (e.code === "Backquote") el.parentElement ? el.remove() : document.body.appendChild(el); };
   addEventListener("keydown", key);
 
-  return {
+  const overlay: DebugOverlay = {
     tick(dtSeconds: number) {
       meter.push(dtSeconds * 1000);
       if (el.parentElement) fps.textContent = `${meter.fps.toFixed(0)} fps · ${meter.avgMs.toFixed(1)} ms`;
     },
-    destroy() { removeEventListener("keydown", key); el.remove(); },
+    destroy() {
+      removeEventListener("keydown", key);
+      el.remove();
+      if (activeOverlay === overlay) activeOverlay = null;
+    },
   };
+  activeOverlay = overlay;
+  return overlay;
 }
