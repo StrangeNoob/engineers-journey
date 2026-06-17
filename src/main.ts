@@ -33,6 +33,7 @@ import { STOP_PLACEMENTS } from "./data/world";
 import { buildScrollReveal } from "./world/scrollReveal";
 import { AudioEngine, footstepDue } from "./audio/audioEngine";
 import { mountIntro } from "./ui/intro";
+import { createAtmosphere } from "./engine/atmosphere";
 
 /** Resolve a quality level: localStorage override → URL param → device tier default. */
 function resolveLevel(tier: ReturnType<typeof detectQuality>["tier"]): QualityLevel {
@@ -138,6 +139,7 @@ let postfx: PostFX | null = null;
 
   configureRenderer(renderer, { exposure: 1.05, toneMapInRenderer: false });
   postfx = createPostFX(renderer, scene, cam.camera, flags, lut);
+  const atmosphere = await createAtmosphere(scene, postfx, quality.drawDistance);
 
   const overlay = mountDebugOverlay({
     level,
@@ -160,6 +162,7 @@ let postfx: PostFX | null = null;
       // one-frame camera lag that caused screen jitter while walking).
       const speed = gandalf.update(dt, moveInput, cam.yawAngle, colliders);
       if (!frozen) gandalf.root.position.y = bridgeHeight(gandalf.root.position.x, gandalf.root.position.z);
+      atmosphere.update(gandalf.root.position.x, gandalf.root.position.z);
       environment.update(gandalf.root.position.x, gandalf.root.position.z);
       cam.update(gandalf.root.position, input, dt, landmarks.obstacles);
       cullTreesNearCamera(cam.camera.position.x, cam.camera.position.z, 5);
