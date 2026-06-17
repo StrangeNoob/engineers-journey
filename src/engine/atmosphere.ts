@@ -46,6 +46,7 @@ export async function createAtmosphere(
     catch { console.warn(`[atmosphere] LUT ${name} missing — using default grade`); return null; }
   };
   const defaultLut = await load(DEFAULT_PROFILE.lut);
+  if (!defaultLut) console.warn("[atmosphere] default LUT missing — color grade disabled (fog/exposure still active)");
   // cache one texture per region (fall back to the default LUT when a file is absent)
   const lutFor = new Map<string, THREE.Texture | null>();
   for (const r of REGIONS) lutFor.set(r.id, (await load(r.lut)) ?? defaultLut);
@@ -61,7 +62,9 @@ export async function createAtmosphere(
       const t = near ? regionWeight(near.dist, near.region.radius, near.region.falloff) : 0;
       const region = near?.region;
       // swap the region LUT while the mix is ~0 (player in travel space)
-      if (region && region.id !== activeId && t < 0.02) {
+      if (!region) {
+        activeId = "";
+      } else if (region.id !== activeId && t < 0.02) {
         const tex = lutFor.get(region.id);
         if (tex) postfx.setRegionLUT(tex);
         activeId = region.id;
