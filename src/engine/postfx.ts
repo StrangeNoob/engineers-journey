@@ -13,13 +13,19 @@ const dualLutFrag = /* glsl */ `
 uniform lowp sampler3D lutA;
 uniform lowp sampler3D lutB;
 uniform float lutMix;
-uniform vec2 lutDomain; // x = scale, y = offset
+uniform vec2 lutDomainA; // x = scale, y = offset (for lutA's size)
+uniform vec2 lutDomainB; // for lutB's size
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-  vec3 c = clamp(inputColor.rgb, 0.0, 1.0) * lutDomain.x + lutDomain.y;
-  vec3 a = texture(lutA, c).rgb;
-  vec3 b = texture(lutB, c).rgb;
+  vec3 base = clamp(inputColor.rgb, 0.0, 1.0);
+  vec3 a = texture(lutA, base * lutDomainA.x + lutDomainA.y).rgb;
+  vec3 b = texture(lutB, base * lutDomainB.x + lutDomainB.y).rgb;
   outputColor = vec4(mix(a, b, lutMix), inputColor.a);
 }`;
+
+function lutDomain(size: number): THREE.Vector2 {
+  const s = Math.max(1, size);
+  return new THREE.Vector2((s - 1) / s, 1 / (2 * s));
+}
 
 class DualLUTEffect extends Effect {
   constructor(base: THREE.Texture, size: number) {
@@ -28,11 +34,16 @@ class DualLUTEffect extends Effect {
         ["lutA", new THREE.Uniform(base)],
         ["lutB", new THREE.Uniform(base)],
         ["lutMix", new THREE.Uniform(0)],
-        ["lutDomain", new THREE.Uniform(new THREE.Vector2((size - 1) / size, 1 / (2 * size)))],
+        ["lutDomainA", new THREE.Uniform(lutDomain(size))],
+        ["lutDomainB", new THREE.Uniform(lutDomain(size))],
       ]),
     });
   }
-  set regionLUT(t: THREE.Texture) { (this.uniforms.get("lutB") as THREE.Uniform<THREE.Texture>).value = t; }
+  set regionLUT(t: THREE.Texture) {
+    (this.uniforms.get("lutB") as THREE.Uniform<THREE.Texture>).value = t;
+    const size = (t as unknown as THREE.Data3DTexture).image?.width ?? 33;
+    (this.uniforms.get("lutDomainB") as THREE.Uniform<THREE.Vector2>).value = lutDomain(size);
+  }
   set mix(v: number) { (this.uniforms.get("lutMix") as THREE.Uniform<number>).value = v; }
 }
 
