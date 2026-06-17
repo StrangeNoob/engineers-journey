@@ -42,9 +42,10 @@ export async function createEnvironment(
     envRT = pmrem.fromEquirectangular(hdr);
     hdr.dispose();
     pmrem.dispose();
-  } catch {
+  } catch (e) {
     console.warn(
       "[environment] HDRI /assets/env/golden_hour_2k.hdr not found — using RoomEnvironment placeholder IBL.",
+      e,
     );
     pmrem.compileCubemapShader();
     const roomEnv = new RoomEnvironment();

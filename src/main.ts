@@ -141,7 +141,12 @@ let postfx: PostFX | null = null;
 
   const overlay = mountDebugOverlay({
     level,
-    onLevel: (l) => { localStorage.setItem("qualityOverride", l); location.reload(); },
+    onLevel: (l) => {
+      // Reload is the intentional teardown: a full page load reclaims all GPU memory, so
+      // environment.dispose()/postfx.dispose() are reserved for future in-place level switching.
+      localStorage.setItem("qualityOverride", l);
+      location.reload();
+    },
   });
 
   let footDist = 0;
