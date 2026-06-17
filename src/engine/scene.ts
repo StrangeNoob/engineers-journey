@@ -13,27 +13,11 @@ export function createScene(): THREE.Scene {
     }),
   ));
 
-  const sun = new THREE.DirectionalLight(0xffe7bf, 2.0);
-  sun.name = "sun";
-  sun.position.copy(SUN_OFFSET);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  // a moderate frustum that the follow-helper keeps centred on the player → crisp local shadows everywhere
-  Object.assign(sun.shadow.camera, { left: -55, right: 55, top: 55, bottom: -55, near: 1, far: 200 });
-  sun.shadow.bias = -0.0004;
   // generous fill so shadowed building faces never read as near-black
-  scene.add(sun, sun.target, new THREE.HemisphereLight(0xcfe0e6, 0x6f7d4a, 1.35), new THREE.AmbientLight(0xf1e9d2, 0.5));
+  scene.add(new THREE.HemisphereLight(0xcfe0e6, 0x6f7d4a, 1.35), new THREE.AmbientLight(0xf1e9d2, 0.5));
   return scene;
 }
 
-const SUN_OFFSET = new THREE.Vector3(-40, 70, 28);
-
-/** Keep the sun (and thus its shadow frustum) centred over the player so shadows stay crisp
- *  and the frustum edge never smears a dark wedge across the world. Call once per frame. */
-export function followSun(scene: THREE.Scene, x: number, z: number): void {
-  const sun = scene.getObjectByName("sun") as THREE.DirectionalLight | null;
-  if (!sun) return;
-  sun.position.set(x + SUN_OFFSET.x, SUN_OFFSET.y, z + SUN_OFFSET.z);
-  sun.target.position.set(x, 0, z);
-  sun.target.updateMatrixWorld();
-}
+/** Deprecated: sun movement now lives in environment.update(). Kept as a no-op shim
+ *  until main.ts is rewired (Task 7), so the build stays green. */
+export function followSun(_scene: THREE.Scene, _x: number, _z: number): void {}
