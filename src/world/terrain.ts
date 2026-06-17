@@ -1,13 +1,31 @@
 import * as THREE from "three";
 import type { Quality } from "../engine/quality";
+import { createPBRMaterial } from "./materials";
 
-/** Large flat ground; tunes scene fog to the world scale + quality. */
+const texLoader = new THREE.TextureLoader();
+/** Load a tiling ground map: repeats across the large ground, with mip + anisotropy so it
+ *  holds up at grazing/distant angles. (~5.4 m per tile across the 520 m diameter.) */
+function groundTex(url: string): THREE.Texture {
+  const t = texLoader.load(url);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(96, 96);
+  t.anisotropy = 8;
+  return t;
+}
+
+/** Large flat ground with tiling PBR grass; tunes scene fog to the world scale + quality. */
 export function createTerrain(scene: THREE.Scene, quality: Quality): THREE.Mesh {
   scene.fog = new THREE.Fog(0xe7decb, 60, quality.drawDistance);
-  // TODO: swap to tiling PBR grass/dirt/rock KTX2 maps when art lands
   const ground = new THREE.Mesh(
     new THREE.CircleGeometry(260, 72),
-    new THREE.MeshStandardMaterial({ color: 0x5a4f2e, roughness: 1, envMapIntensity: 1.0 }), // dry earth tone so any gaps read as soil under the grass, not green lawn
+    createPBRMaterial(
+      { roughness: 1, metalness: 0, normalScale: 1, envMapIntensity: 1.0 },
+      {
+        albedo: groundTex("/assets/textures/pbr/grass_albedo.jpg"),
+        normal: groundTex("/assets/textures/pbr/grass_normal.jpg"),
+        roughness: groundTex("/assets/textures/pbr/grass_roughness.jpg"),
+      },
+    ),
   );
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
