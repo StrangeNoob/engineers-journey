@@ -48,15 +48,18 @@ export function createPostFX(
   const composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType });
   composer.addPass(new RenderPass(scene, camera));
 
-  const normalPass = new NormalPass(scene, camera);
-  if (flags.ssao) composer.addPass(normalPass);
+  let normalPass: NormalPass | null = null;
+  if (flags.ssao) {
+    normalPass = new NormalPass(scene, camera);
+    composer.addPass(normalPass);
+  }
 
   // focusRange controls the depth-of-field blur range (world units).
   // When a tale panel is open (active=true) we widen the range to deepen DoF.
   const dof = new DepthOfFieldEffect(camera, { focusDistance: 3.0, focusRange: 2.0, bokehScale: 2.0 });
   const make = (step: EffectStep) => {
     switch (step.id) {
-      case "ssao": return new SSAOEffect(camera, normalPass.texture, { samples: 16, radius: 0.25, intensity: 2.0, resolutionScale: 0.5 });
+      case "ssao": return new SSAOEffect(camera, normalPass!.texture, { samples: 16, radius: 0.25, intensity: 2.0, resolutionScale: 0.5 });
       case "bloom": return new BloomEffect({ luminanceThreshold: 0.75, intensity: 0.6, mipmapBlur: true });
       case "dof": return dof;
       case "tonemap": return new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC });
