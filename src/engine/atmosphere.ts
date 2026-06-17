@@ -20,11 +20,10 @@ export function nearestRegion(x: number, z: number, regions: Region[] = REGIONS)
 
 export interface BlendedProfile { fog: RegionFog; exposure: number }
 
-const _a = new THREE.Color(), _b = new THREE.Color();
 /** Pure: blend fog (color/near/far) + exposure from base toward region by t∈[0,1]. */
 export function lerpProfile(base: RegionProfile, region: RegionProfile, t: number): BlendedProfile {
   const lerp = (x: number, y: number) => x + (y - x) * t;
-  const color = _a.setHex(base.fog.color).lerp(_b.setHex(region.fog.color), t).getHex();
+  const color = new THREE.Color(base.fog.color).lerp(new THREE.Color(region.fog.color), t).getHex();
   return {
     exposure: lerp(base.exposure, region.exposure),
     fog: { color, near: lerp(base.fog.near, region.fog.near), far: lerp(base.fog.far, region.fog.far) },

@@ -25,6 +25,9 @@ describe("nearestRegion", () => {
     expect(got?.region.id).toBe("isengard");
     expect(got?.dist).toBeLessThan(3);
   });
+  it("returns null for an empty region list", () => {
+    expect(nearestRegion(0, 0, [])).toBeNull();
+  });
 });
 
 describe("lerpProfile", () => {
@@ -38,5 +41,7 @@ describe("lerpProfile", () => {
     expect(b.exposure).toBeCloseTo((DEFAULT_PROFILE.exposure + region.exposure) / 2);
     const mid = new THREE.Color(DEFAULT_PROFILE.fog.color).lerp(new THREE.Color(region.fog.color), 0.5);
     expect(b.fog.color).toBe(mid.getHex());
+    expect(b.fog.near).toBeCloseTo((DEFAULT_PROFILE.fog.near + region.fog.near) / 2);
+    expect(b.fog.far).toBeCloseTo((DEFAULT_PROFILE.fog.far + region.fog.far) / 2);
   });
 });
