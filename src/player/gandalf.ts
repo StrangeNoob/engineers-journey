@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { loadGLTF, toonify } from "../world/assets";
+import { loadGLTF } from "../world/assets";
+import { applyPBR } from "../world/materials";
 import type { InputState } from "../engine/input";
 
 export type Gait = "idle" | "walk" | "run";
@@ -74,7 +75,7 @@ export class Gandalf {
       loadGLTF("gandalf-listening"), loadGLTF("gandalf-one-hand-wave"),
     ]);
     const mesh = walk.scene;
-    toonify(mesh);
+    applyPBR(mesh, { roughness: 0.85, metalness: 0.0 });
     this.root.add(mesh);
 
     const clip = (g: typeof walk, label: string): THREE.AnimationClip => {

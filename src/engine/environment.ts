@@ -21,6 +21,7 @@ export function fogConfig(drawDistance: number): FogCfg {
 export interface Environment {
   update(x: number, z: number): void;
   dispose(): void;
+  registerShadows(root: THREE.Object3D): void;
 }
 
 export async function createEnvironment(
@@ -112,6 +113,13 @@ export async function createEnvironment(
       if (sun) { scene.remove(sun, sun.target); sun.dispose(); }
       envRT.dispose();
       scene.environment = null;
+    },
+    registerShadows(root: THREE.Object3D) {
+      if (!csm) return;
+      root.traverse((o) => {
+        const m = (o as THREE.Mesh).material as THREE.Material | undefined;
+        if (m && (m as THREE.MeshStandardMaterial).isMeshStandardMaterial) csm!.setupMaterial(m);
+      });
     },
   };
 }
