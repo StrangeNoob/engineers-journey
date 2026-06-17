@@ -187,6 +187,7 @@ let postfx: PostFX | null = null;
   ];
   void Promise.allSettled(builders.map(([, p]) => p)).then((results) => {
     results.forEach((r, i) => { if (r.status === "rejected") console.error(`world build "${builders[i][0]}" failed`, r.reason); });
+    environment.registerShadows(scene);
   });
 })().catch((e) => { console.error(e); boot.querySelector(".lab")!.textContent = "Load error — see console"; });
 
