@@ -10,6 +10,10 @@ import type { EffectFlags } from "./quality";
 export type EffectId =
   | "ssao" | "bloom" | "dof" | "tonemap" | "lut" | "vignette" | "grain" | "chromaticAberration" | "smaa";
 
+/** Strength of the color-grade LUT (0 = none, 1 = full). Kept subtle so it warms the
+ *  scene without crushing greens toward orange. */
+const LUT_OPACITY = 0.2;
+
 export interface EffectStep { id: EffectId; enabled: boolean }
 
 /** Pure: the stable, ordered effect chain. Tone mapping precedes the grade/finishing effects. */
@@ -62,8 +66,13 @@ export function createPostFX(
       case "ssao": return new SSAOEffect(camera, normalPass!.texture, { samples: 16, radius: 0.25, intensity: 2.0, resolutionScale: 0.5 });
       case "bloom": return new BloomEffect({ luminanceThreshold: 0.75, intensity: 0.6, mipmapBlur: true });
       case "dof": return dof;
-      case "tonemap": return new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC });
-      case "lut": return lut ? new LUT3DEffect(lut) : null;
+      case "tonemap": return new ToneMappingEffect({ mode: ToneMappingMode.AGX });
+      case "lut": {
+        if (!lut) return null;
+        const e = new LUT3DEffect(lut);
+        e.blendMode.opacity.value = LUT_OPACITY;
+        return e;
+      }
       case "vignette": return new VignetteEffect({ darkness: 0.5, offset: 0.35 });
       case "grain": return new NoiseEffect({ blendFunction: BlendFunction.OVERLAY, premultiply: true });
       case "smaa": return new SMAAEffect();

@@ -44,7 +44,9 @@ function crossedCard(aspect: number): THREE.BufferGeometry {
 /** Unlit (texture carries its own shading) + alpha-cut + fog, with a wind-sway
  *  injected into the vertex stage so the tops drift and clumps wave out of phase. */
 function grassMaterial(tex: THREE.Texture, time: { value: number }): THREE.Material {
-  const mat = new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide });
+  // Light green tint nudges the texture's pale seed-head tops toward a lush meadow green.
+  // Kept light (near-bright) so values aren't crushed dark — a dark tint triggers bloom artifacts.
+  const mat = new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide, color: new THREE.Color(0x9ed27e) });
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = time;
     sh.vertexShader = "uniform float uTime;\n" + sh.vertexShader.replace(
@@ -64,7 +66,9 @@ function grassMaterial(tex: THREE.Texture, time: { value: number }): THREE.Mater
  *  Returns a per-frame updater that drives the wind animation. */
 export async function buildGrassField(scene: THREE.Scene, quality: Quality): Promise<(t: number) => void> {
   const loader = new THREE.TextureLoader();
-  const names = ["grass-1", "grass-2", "grass-4"];
+  // grass-card is the lush green tuft; the grass-1..4 set is wheat (golden tops) which
+  // reads orange across a dense field, so the meadow uses the green one.
+  const names = ["grass-card"];
   const texes = await Promise.all(names.map((n) => loader.loadAsync(`/assets/textures/${n}.png`)));
   const time = { value: 0 };
   const total = quality.tier === "mobile" ? 6500 : 26000;
