@@ -37,7 +37,7 @@ export function createPBRMaterial(
     set(tex);
   };
   assign("albedo", (t) => (mat.map = t));
-  assign("normal", (t) => { mat.normalMap = t; if (cfg.normalScale) mat.normalScale.set(cfg.normalScale, cfg.normalScale); });
+  assign("normal", (t) => { mat.normalMap = t; if (cfg.normalScale != null) mat.normalScale.set(cfg.normalScale, cfg.normalScale); });
   assign("roughness", (t) => (mat.roughnessMap = t));
   assign("metalness", (t) => (mat.metalnessMap = t));
   assign("ao", (t) => (mat.aoMap = t));
@@ -55,8 +55,8 @@ export function applyPBR(root: THREE.Object3D, cfg: PBRConfig): THREE.Object3D {
     const m = o as THREE.Mesh;
     if (!m.isMesh || Array.isArray(m.material)) return;
     m.castShadow = m.receiveShadow = true;
-    const prev = m.material as THREE.MeshStandardMaterial;
-    const albedo = prev.map ?? undefined;
+    const prev = m.material as THREE.MeshToonMaterial | THREE.MeshStandardMaterial;
+    const albedo = (prev as THREE.MeshStandardMaterial).map ?? undefined;
     if (albedo) albedo.colorSpace = THREE.SRGBColorSpace;
     m.material = new THREE.MeshStandardMaterial({
       ...buildStandardMaterialParams({ ...cfg, color: cfg.color ?? prev.color?.getHex() }),
