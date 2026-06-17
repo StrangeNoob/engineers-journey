@@ -18,6 +18,3 @@ export function createScene(): THREE.Scene {
   return scene;
 }
 
-/** Deprecated: sun movement now lives in environment.update(). Kept as a no-op shim
- *  until main.ts is rewired (Task 7), so the build stays green. */
-export function followSun(_scene: THREE.Scene, _x: number, _z: number): void {}
