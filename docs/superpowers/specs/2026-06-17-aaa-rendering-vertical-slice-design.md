@@ -84,7 +84,7 @@ Existing `engine/loop.ts`, `player/*`, `systems/*`, `ui/*` stay intact — we sw
 
 **Tier degradation (desktop-first, graceful mobile)**
 - **MEDIUM**: drop DoF, lighter GTAO; keep bloom/tonemap/LUT/SMAA.
-- **LOW (mobile)**: tone mapping + bloom + SMAA + basic shadows only; no GTAO/DoF/CA; lower pixelRatio. Existing toon path remains as an emergency fallback.
+- **LOW (mobile)**: tone mapping + bloom + SMAA + basic shadows only; no GTAO/DoF/CA; lower pixelRatio. The toon path (`toonify` in `assets.ts`) is retained in the codebase as a fallback (the non-hero landmarks still render toon). Note: forcing the *player* to stay toon on LOW is optional and NOT done in this slice — Gandalf renders PBR on all tiers (see Task 8). "Retained" here means `toonify` must not be deleted, not that every object uses it.
 
 ## Asset Plan
 

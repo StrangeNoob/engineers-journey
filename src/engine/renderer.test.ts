@@ -23,6 +23,7 @@ describe("configureRenderer", () => {
     const r = stub();
     configureRenderer(r, { exposure: 1.0, toneMapInRenderer: false });
     expect(r.toneMapping).toBe(THREE.NoToneMapping);
+    expect(r.toneMappingExposure).toBeCloseTo(1.0);
     expect(r.outputColorSpace).toBe(THREE.SRGBColorSpace);
   });
 });

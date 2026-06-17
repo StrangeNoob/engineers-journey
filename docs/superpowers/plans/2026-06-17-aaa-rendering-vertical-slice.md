@@ -271,7 +271,7 @@ cp node_modules/three/examples/jsm/libs/basis/basis_transcoder.js public/basis/
 cp node_modules/three/examples/jsm/libs/basis/basis_transcoder.wasm public/basis/
 ```
 
-Expected: two files present under `public/basis/`.
+Expected: two files present under `public/basis/` (~0.5 MB combined — `basis_transcoder.wasm` ≈ 0.5 MB, `.js` ≈ 60 KB). These are decoder *infrastructure*, not scene art, so they are tracked separately from the ~10 MB asset budget in the spec (which covers GLBs/textures/HDRI/LUT).
 
 - [ ] **Step 2: Write the failing test** — create `src/world/materials.test.ts`:
 

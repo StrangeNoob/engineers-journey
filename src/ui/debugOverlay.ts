@@ -37,7 +37,7 @@ export function mountDebugOverlay(opts: { level: QualityLevel; onLevel(l: Qualit
   sel.onchange = () => opts.onLevel(sel.value as QualityLevel);
   el.append(fps, sel);
 
-  const enabled = location.search.includes("debug");
+  const enabled = new URLSearchParams(location.search).has("debug");
   if (enabled) document.body.appendChild(el);
   const key = (e: KeyboardEvent) => { if (e.code === "Backquote") el.parentElement ? el.remove() : document.body.appendChild(el); };
   addEventListener("keydown", key);

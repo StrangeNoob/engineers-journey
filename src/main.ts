@@ -61,7 +61,7 @@ renderer.domElement.setAttribute("aria-label",
   "Interactive 3D Middle-earth. Walk Gandalf between six villages, each recalling a career chapter. Press M to open an accessible map and jump to any chapter.");
 
 const scene = createScene();
-createTerrain(scene, quality);
+createTerrain(scene);
 
 const input = new Input();
 input.attach(renderer.domElement);
