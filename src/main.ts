@@ -1,5 +1,6 @@
 import "./styles/main.css";
 import * as THREE from "three";
+import { LUTCubeLoader } from "postprocessing";
 import { STOPS, CONTACT } from "./data/career";
 import { createRenderer, configureRenderer } from "./engine/renderer";
 import { createScene } from "./engine/scene";
@@ -82,7 +83,7 @@ addEventListener("keydown", () => void audio.start(), { once: true });
 const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.map((s) => [s.id, s]));
 
 // Outer-scope handle so the resize handler can reach postfx before the async IIFE resolves.
-let postfx: PostFX;
+let postfx: PostFX | null = null;
 
 (async () => {
   await gandalf.load();
@@ -130,7 +131,6 @@ let postfx: PostFX;
   // Resolution B: load the color-grade LUT; skip gracefully on failure.
   let lut: THREE.Texture | null = null;
   try {
-    const { LUTCubeLoader } = await import("postprocessing");
     lut = await new LUTCubeLoader().loadAsync("/assets/luts/golden-hour.cube") as unknown as THREE.Texture;
   } catch (e) {
     console.warn("[postfx] LUT load failed — skipping color grade:", e);
@@ -168,8 +168,8 @@ let postfx: PostFX;
       }
     }
     input.endFrame();
-    postfx.setFocus(stops.isPanelOpen); // intensify DoF during a tale
-    postfx.render(dt);
+    postfx?.setFocus(stops.isPanelOpen); // intensify DoF during a tale
+    postfx?.render(dt);
     overlay.tick(dt);
   });
   hideBoot(boot);
