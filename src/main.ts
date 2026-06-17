@@ -1,10 +1,17 @@
 import "./styles/main.css";
+import * as THREE from "three";
+import { LUTCubeLoader } from "postprocessing";
 import { STOPS, CONTACT } from "./data/career";
-import { createRenderer } from "./engine/renderer";
-import { createScene, followSun } from "./engine/scene";
+import { createRenderer, configureRenderer } from "./engine/renderer";
+import { createScene } from "./engine/scene";
 import { startLoop } from "./engine/loop";
 import { Input } from "./engine/input";
-import { detectQuality } from "./engine/quality";
+import { detectQuality, pickQualityLevel, effectFlags } from "./engine/quality";
+import type { QualityLevel } from "./engine/quality";
+import { createEnvironment } from "./engine/environment";
+import { createPostFX } from "./engine/postfx";
+import type { PostFX } from "./engine/postfx";
+import { mountDebugOverlay } from "./ui/debugOverlay";
 import { createTerrain } from "./world/terrain";
 import { placeLandmarks } from "./world/landmarks";
 import { buildRoad, bridgeHeight } from "./world/road";
@@ -27,13 +34,25 @@ import { buildScrollReveal } from "./world/scrollReveal";
 import { AudioEngine, footstepDue } from "./audio/audioEngine";
 import { mountIntro } from "./ui/intro";
 
+/** Resolve a quality level: localStorage override → URL param → device tier default. */
+function resolveLevel(tier: ReturnType<typeof detectQuality>["tier"]): QualityLevel {
+  const VALID: QualityLevel[] = ["high", "medium", "low"];
+  const stored = localStorage.getItem("qualityOverride") as QualityLevel | null;
+  if (stored && VALID.includes(stored)) return stored;
+  const param = new URLSearchParams(location.search).get("quality") as QualityLevel | null;
+  if (param && VALID.includes(param)) return param;
+  return pickQualityLevel(tier);
+}
+
 const app = document.getElementById("app")!;
 const boot = showBoot();
 const quality = detectQuality();
+const level = resolveLevel(quality.tier);
+const flags = effectFlags(level);
 
 const renderer = createRenderer();
 renderer.setPixelRatio(quality.pixelRatio);
-renderer.shadowMap.enabled = quality.shadows;
+renderer.shadowMap.enabled = quality.shadows || flags.csm;
 app.appendChild(renderer.domElement);
 renderer.domElement.style.touchAction = "none";
 // label the canvas for assistive tech, and point it at the accessible map path
@@ -42,7 +61,7 @@ renderer.domElement.setAttribute("aria-label",
   "Interactive 3D Middle-earth. Walk Gandalf between six villages, each recalling a career chapter. Press M to open an accessible map and jump to any chapter.");
 
 const scene = createScene();
-createTerrain(scene, quality);
+createTerrain(scene);
 
 const input = new Input();
 input.attach(renderer.domElement);
@@ -62,6 +81,9 @@ addEventListener("pointerdown", () => void audio.start(), { once: true });
 addEventListener("keydown", () => void audio.start(), { once: true });
 
 const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.map((s) => [s.id, s]));
+
+// Outer-scope handle so the resize handler can reach postfx before the async IIFE resolves.
+let postfx: PostFX | null = null;
 
 (async () => {
   await gandalf.load();
@@ -103,6 +125,30 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
     else map.open(gandalf.root.position.x, gandalf.root.position.z);
   });
 
+  // Cinematic environment (HDRI/IBL + CSM + fog) and the post-processing stack.
+  const environment = await createEnvironment(renderer, scene, cam.camera, flags, quality.drawDistance);
+
+  // Resolution B: load the color-grade LUT; skip gracefully on failure.
+  let lut: THREE.Texture | null = null;
+  try {
+    lut = await new LUTCubeLoader().loadAsync("/assets/luts/golden-hour.cube") as unknown as THREE.Texture;
+  } catch (e) {
+    console.warn("[postfx] LUT load failed — skipping color grade:", e);
+  }
+
+  configureRenderer(renderer, { exposure: 1.05, toneMapInRenderer: false });
+  postfx = createPostFX(renderer, scene, cam.camera, flags, lut);
+
+  const overlay = mountDebugOverlay({
+    level,
+    onLevel: (l) => {
+      // Reload is the intentional teardown: a full page load reclaims all GPU memory, so
+      // environment.dispose()/postfx.dispose() are reserved for future in-place level switching.
+      localStorage.setItem("qualityOverride", l);
+      location.reload();
+    },
+  });
+
   let footDist = 0;
   startLoop((dt) => {
     elapsed += dt;
@@ -114,7 +160,7 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
       // one-frame camera lag that caused screen jitter while walking).
       const speed = gandalf.update(dt, moveInput, cam.yawAngle, colliders);
       if (!frozen) gandalf.root.position.y = bridgeHeight(gandalf.root.position.x, gandalf.root.position.z);
-      followSun(scene, gandalf.root.position.x, gandalf.root.position.z);
+      environment.update(gandalf.root.position.x, gandalf.root.position.z);
       cam.update(gandalf.root.position, input, dt, landmarks.obstacles);
       cullTreesNearCamera(cam.camera.position.x, cam.camera.position.z, 5);
       grassWind?.(elapsed);
@@ -127,7 +173,9 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
       }
     }
     input.endFrame();
-    renderer.render(scene, cam.camera);
+    postfx?.setFocus(stops.isPanelOpen); // intensify DoF during a tale
+    postfx?.render(dt);
+    overlay.tick(dt);
   });
   hideBoot(boot);
   mountIntro(CONTACT.resume); // first-visit control legend + a "skip to résumé" link
@@ -144,7 +192,12 @@ const content: Record<string, typeof STOPS[number]> = Object.fromEntries(STOPS.m
   ];
   void Promise.allSettled(builders.map(([, p]) => p)).then((results) => {
     results.forEach((r, i) => { if (r.status === "rejected") console.error(`world build "${builders[i][0]}" failed`, r.reason); });
+    environment.registerShadows(scene);
   });
 })().catch((e) => { console.error(e); boot.querySelector(".lab")!.textContent = "Load error — see console"; });
 
-addEventListener("resize", () => { renderer.setSize(innerWidth, innerHeight); cam.resize(); });
+addEventListener("resize", () => {
+  renderer.setSize(innerWidth, innerHeight);
+  postfx?.setSize(innerWidth, innerHeight);
+  cam.resize();
+});

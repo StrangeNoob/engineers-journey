@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { loadGLTF, toonify, fitToHeight } from "./assets";
+import { applyPBR } from "./materials";
 import { STOP_PLACEMENTS, ARGONATH, type Placement } from "../data/world";
 
 export interface PlacedStop {
@@ -47,7 +48,8 @@ export function placeLandmarks(scene: THREE.Scene): LandmarkRegistry {
     loadGLTF(p.id === "argonath" ? "argonath" : modelFor(p.id))
       .then((g) => {
         const root = g.scene as THREE.Group;
-        toonify(root);
+        if (p.id === "shire") applyPBR(root, { roughness: 0.9, metalness: 0.0 });
+        else toonify(root);
         fitToHeight(root, p.height); // scale by real-world height (human-relative)
         root.position.x = p.x; root.position.z = p.z;
         root.position.y -= p.sink;
