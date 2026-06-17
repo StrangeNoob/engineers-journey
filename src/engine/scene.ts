@@ -1,7 +1,6 @@
 import * as THREE from "three";
 export function createScene(): THREE.Scene {
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0xe7decb, 40, 140);
 
   scene.add(new THREE.Mesh(
     new THREE.SphereGeometry(320, 32, 16),

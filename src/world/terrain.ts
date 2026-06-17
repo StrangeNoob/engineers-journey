@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import type { Quality } from "../engine/quality";
 import { createPBRMaterial } from "./materials";
 
 const texLoader = new THREE.TextureLoader();
@@ -13,9 +12,8 @@ function groundTex(url: string): THREE.Texture {
   return t;
 }
 
-/** Large flat ground with tiling PBR grass; tunes scene fog to the world scale + quality. */
-export function createTerrain(scene: THREE.Scene, quality: Quality): THREE.Mesh {
-  scene.fog = new THREE.Fog(0xe7decb, 60, quality.drawDistance);
+/** Large flat ground with tiling PBR grass. (Scene fog is owned by the environment module.) */
+export function createTerrain(scene: THREE.Scene): THREE.Mesh {
   const ground = new THREE.Mesh(
     new THREE.CircleGeometry(260, 72),
     createPBRMaterial(
