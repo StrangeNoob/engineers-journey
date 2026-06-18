@@ -89,13 +89,12 @@ export class Gandalf {
 
   /** Prefer a single merged gandalf.glb (named clips); fall back to the five legacy GLBs. */
   private async loadModel(): Promise<{ mesh: THREE.Object3D; clips: Map<string, THREE.AnimationClip> }> {
-    try {
-      const g = await loadGLTF("gandalf");
-      if (g.animations.length > 0) {
-        const clips = new Map(g.animations.map((c) => [c.name.toLowerCase(), c]));
-        return { mesh: g.scene, clips };
-      }
-    } catch { /* no merged model yet — fall back to the legacy five */ }
+    let single: Awaited<ReturnType<typeof loadGLTF>> | null = null;
+    try { single = await loadGLTF("gandalf"); } catch { /* no merged model yet — fall back to the legacy five */ }
+    if (single && single.animations.length > 0) {
+      const clips = new Map(single.animations.map((c) => [c.name.toLowerCase(), c]));
+      return { mesh: single.scene, clips };
+    }
     const [walk, run, idle, listening, wave] = await Promise.all([
       loadGLTF("gandalf-walk"), loadGLTF("gandalf-run"), loadGLTF("gandalf-idle"),
       loadGLTF("gandalf-listening"), loadGLTF("gandalf-one-hand-wave"),
@@ -129,9 +128,10 @@ export class Gandalf {
       listening: this.mixer.clipAction(resolved.listening),
     };
     (["idle", "walk", "run"] as Gait[]).forEach((k) => { this.loco[k].play(); this.loco[k].weight = k === "idle" ? 1 : 0; });
-    this.loco.walk.timeScale = WALK_SPEED / WALK_CLIP_SPEED;
+    this.loco.walk.timeScale = WALK_SPEED / WALK_CLIP_SPEED; // keep strides in step with the faster pace
     this.loco.run.timeScale = RUN_SPEED / RUN_CLIP_SPEED;
     Object.values(this.gestures).forEach((a) => { a.weight = 0; });
+    // a finished gesture that isn't being held fades back to locomotion
     this.mixer.addEventListener("finished", (e) => {
       if (e.action === this.active && !this.hold) this.gestureTarget = 0;
     });
