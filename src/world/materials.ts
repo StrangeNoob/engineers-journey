@@ -66,3 +66,38 @@ export function applyPBR(root: THREE.Object3D, cfg: PBRConfig): THREE.Object3D {
   });
   return root;
 }
+
+/**
+ * Character/material prep that KEEPS a model's shipped PBR maps. If a mesh's material is a
+ * MeshStandardMaterial already carrying PBR maps (normal/roughness/metalness), keep it and
+ * just fix color spaces + shadow flags + envMapIntensity. Otherwise re-texture to PBR
+ * (preserving the albedo), like applyPBR.
+ */
+export function usePBRMaterials(root: THREE.Object3D, cfg: PBRConfig): THREE.Object3D {
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh || Array.isArray(m.material)) return;
+    m.castShadow = m.receiveShadow = true;
+    const mat = m.material as THREE.MeshStandardMaterial;
+    const hasPBR = mat.isMeshStandardMaterial && !!(mat.normalMap || mat.roughnessMap || mat.metalnessMap);
+    if (hasPBR) {
+      if (mat.map) mat.map.colorSpace = THREE.SRGBColorSpace;
+      if (mat.emissiveMap) mat.emissiveMap.colorSpace = THREE.SRGBColorSpace;
+      for (const t of [mat.normalMap, mat.roughnessMap, mat.metalnessMap, mat.aoMap]) {
+        if (t) t.colorSpace = THREE.NoColorSpace;
+      }
+      mat.envMapIntensity = cfg.envMapIntensity ?? 1.0;
+      mat.needsUpdate = true;
+    } else {
+      const prev = mat as THREE.MeshToonMaterial | THREE.MeshStandardMaterial;
+      const albedo = (prev as THREE.MeshStandardMaterial).map ?? undefined;
+      if (albedo) albedo.colorSpace = THREE.SRGBColorSpace;
+      m.material = new THREE.MeshStandardMaterial({
+        ...buildStandardMaterialParams({ ...cfg, color: cfg.color ?? prev.color?.getHex() }),
+        map: albedo ?? null,
+      });
+      (m.material as THREE.Material).needsUpdate = true;
+    }
+  });
+  return root;
+}
