@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as THREE from "three";
-import { colorSpaceForSlot, buildStandardMaterialParams, createPBRMaterial, applyPBR } from "./materials";
+import { colorSpaceForSlot, buildStandardMaterialParams, createPBRMaterial, applyPBR, usePBRMaterials } from "./materials";
 
 describe("colorSpaceForSlot", () => {
   it("albedo + emissive are sRGB", () => {
@@ -59,5 +59,32 @@ describe("applyPBR", () => {
     const mat = mesh.material as unknown as THREE.MeshStandardMaterial;
     expect(mat.map).toBe(albedoTexture);
     expect(mat.map!.colorSpace).toBe(THREE.SRGBColorSpace);
+  });
+});
+
+describe("usePBRMaterials", () => {
+  it("preserves a shipped PBR material and fixes map color spaces", () => {
+    const normal = new THREE.Texture();
+    const albedo = new THREE.Texture();
+    const mat = new THREE.MeshStandardMaterial({ map: albedo, normalMap: normal });
+    const mesh = new THREE.Mesh(new THREE.BufferGeometry(), mat);
+    const root = new THREE.Group();
+    root.add(mesh);
+    usePBRMaterials(root, { envMapIntensity: 1.0 });
+    expect(mesh.material).toBe(mat);                       // same instance kept
+    expect((mesh.material as THREE.MeshStandardMaterial).normalMap).toBe(normal);
+    expect(normal.colorSpace).toBe(THREE.NoColorSpace);
+    expect(albedo.colorSpace).toBe(THREE.SRGBColorSpace);
+    expect(mesh.castShadow).toBe(true);
+  });
+  it("converts a toon/basic source material to MeshStandardMaterial", () => {
+    const albedo = new THREE.Texture();
+    const mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshToonMaterial({ map: albedo }));
+    const root = new THREE.Group();
+    root.add(mesh);
+    usePBRMaterials(root, { roughness: 0.85 });
+    expect(mesh.material).toBeInstanceOf(THREE.MeshStandardMaterial);
+    expect((mesh.material as unknown as THREE.MeshStandardMaterial).map).toBe(albedo);
+    expect(mesh.receiveShadow).toBe(true);
   });
 });
