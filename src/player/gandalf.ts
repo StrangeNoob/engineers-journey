@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { loadGLTF } from "../world/assets";
-import { applyPBR } from "../world/materials";
+import { usePBRMaterials } from "../world/materials";
 import type { InputState } from "../engine/input";
 
 export type Gait = "idle" | "walk" | "run";
@@ -66,6 +66,10 @@ export function resolveCollisions(x: number, z: number, colliders: Collider[], r
   return { x, z };
 }
 
+// Y-rotation (radians) applied to the model so its authored forward matches the movement
+// convention (root.rotation.y = atan2(dir.x, dir.z)). Calibrated in-browser; 0 if already aligned.
+const MODEL_FACING_OFFSET = 0;
+
 const WALK_SPEED = 4.2;
 const RUN_SPEED = 8.8;
 const BODY_RADIUS = 0.5;   // Gandalf's collision footprint (metres)
@@ -83,42 +87,56 @@ export class Gandalf {
   private gestureTarget = 0;                            // 0 = fade out, 1 = fade in
   private hold = false;                                 // keep the gesture's end pose until released
 
-  async load(): Promise<void> {
+  /** Prefer a single merged gandalf.glb (named clips); fall back to the five legacy GLBs. */
+  private async loadModel(): Promise<{ mesh: THREE.Object3D; clips: Map<string, THREE.AnimationClip> }> {
+    try {
+      const g = await loadGLTF("gandalf");
+      if (g.animations.length > 0) {
+        const clips = new Map(g.animations.map((c) => [c.name.toLowerCase(), c]));
+        return { mesh: g.scene, clips };
+      }
+    } catch { /* no merged model yet — fall back to the legacy five */ }
     const [walk, run, idle, listening, wave] = await Promise.all([
       loadGLTF("gandalf-walk"), loadGLTF("gandalf-run"), loadGLTF("gandalf-idle"),
       loadGLTF("gandalf-listening"), loadGLTF("gandalf-one-hand-wave"),
     ]);
-    const mesh = walk.scene;
-    applyPBR(mesh, { roughness: 0.85, metalness: 0.0 });
-    this.root.add(mesh);
-
-    const clip = (g: typeof walk, label: string): THREE.AnimationClip => {
+    const first = (g: { animations: THREE.AnimationClip[] }, label: string) => {
       const c = g.animations[0];
       if (!c) throw new Error(`Gandalf ${label} clip missing`);
       return c;
     };
+    const clips = new Map<string, THREE.AnimationClip>([
+      ["idle", first(idle, "idle")], ["walk", first(walk, "walk")], ["run", first(run, "run")],
+      ["wave", first(wave, "wave")], ["listening", first(listening, "listening")],
+    ]);
+    return { mesh: walk.scene, clips };
+  }
+
+  async load(): Promise<void> {
+    const { mesh, clips } = await this.loadModel();
+    usePBRMaterials(mesh, { roughness: 0.85, metalness: 0.0 });
+    this.root.add(mesh);
+
+    const resolved = resolveClips(["idle", "walk", "run", "wave", "listening"], clips);
     this.mixer = new THREE.AnimationMixer(mesh);
-    // every clip shares the rig's bone names, so they all retarget onto this mesh's mixer.
     this.loco = {
-      idle: this.mixer.clipAction(clip(idle, "idle")),
-      walk: this.mixer.clipAction(clip(walk, "walk")),
-      run: this.mixer.clipAction(clip(run, "run")),
+      idle: this.mixer.clipAction(resolved.idle),
+      walk: this.mixer.clipAction(resolved.walk),
+      run: this.mixer.clipAction(resolved.run),
     };
     this.gestures = {
-      wave: this.mixer.clipAction(clip(wave, "wave")),
-      listening: this.mixer.clipAction(clip(listening, "listening")),
+      wave: this.mixer.clipAction(resolved.wave),
+      listening: this.mixer.clipAction(resolved.listening),
     };
     (["idle", "walk", "run"] as Gait[]).forEach((k) => { this.loco[k].play(); this.loco[k].weight = k === "idle" ? 1 : 0; });
-    this.loco.walk.timeScale = WALK_SPEED / WALK_CLIP_SPEED;   // keep strides in step with the faster pace
+    this.loco.walk.timeScale = WALK_SPEED / WALK_CLIP_SPEED;
     this.loco.run.timeScale = RUN_SPEED / RUN_CLIP_SPEED;
     Object.values(this.gestures).forEach((a) => { a.weight = 0; });
-    // a finished gesture that isn't being held fades back to locomotion
     this.mixer.addEventListener("finished", (e) => {
       if (e.action === this.active && !this.hold) this.gestureTarget = 0;
     });
 
-    // Size + ground from the ANIMATED idle pose (pose-aware; Box3.setFromObject under-measures
-    // this rig). Apply the idle frame, measure real skinned bounds, scale to 1.9 m, drop soles to 0.
+    // Size + ground from the ANIMATED idle pose (pose-aware), then apply the facing offset.
     this.mixer.update(0);
     const poseBox = () => {
       this.root.updateMatrixWorld(true);
@@ -136,6 +154,7 @@ export class Gandalf {
     mesh.scale.setScalar(k);
     const grounded = poseBox();
     if (!grounded.isEmpty()) mesh.position.y -= grounded.min.y;
+    mesh.rotation.y += MODEL_FACING_OFFSET;
   }
 
   /** Play a one-shot gesture. hold=true keeps the end pose until releaseGesture(). */
