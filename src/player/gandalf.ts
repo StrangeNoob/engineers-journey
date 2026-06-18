@@ -87,28 +87,11 @@ export class Gandalf {
   private gestureTarget = 0;                            // 0 = fade out, 1 = fade in
   private hold = false;                                 // keep the gesture's end pose until released
 
-  /** Prefer a single merged gandalf.glb (named clips); fall back to the five legacy GLBs. */
   private async loadModel(): Promise<{ mesh: THREE.Object3D; clips: Map<string, THREE.AnimationClip> }> {
-    let single: Awaited<ReturnType<typeof loadGLTF>> | null = null;
-    try { single = await loadGLTF("gandalf"); } catch { /* no merged model yet — fall back to the legacy five */ }
-    if (single && single.animations.length > 0) {
-      const clips = new Map(single.animations.map((c) => [c.name.toLowerCase(), c]));
-      return { mesh: single.scene, clips };
-    }
-    const [walk, run, idle, listening, wave] = await Promise.all([
-      loadGLTF("gandalf-walk"), loadGLTF("gandalf-run"), loadGLTF("gandalf-idle"),
-      loadGLTF("gandalf-listening"), loadGLTF("gandalf-one-hand-wave"),
-    ]);
-    const first = (g: { animations: THREE.AnimationClip[] }, label: string) => {
-      const c = g.animations[0];
-      if (!c) throw new Error(`Gandalf ${label} clip missing`);
-      return c;
-    };
-    const clips = new Map<string, THREE.AnimationClip>([
-      ["idle", first(idle, "idle")], ["walk", first(walk, "walk")], ["run", first(run, "run")],
-      ["wave", first(wave, "wave")], ["listening", first(listening, "listening")],
-    ]);
-    return { mesh: walk.scene, clips };
+    const g = await loadGLTF("gandalf");
+    if (g.animations.length === 0) throw new Error("gandalf.glb has no animation clips");
+    const clips = new Map(g.animations.map((c) => [c.name.toLowerCase(), c]));
+    return { mesh: g.scene, clips };
   }
 
   async load(): Promise<void> {

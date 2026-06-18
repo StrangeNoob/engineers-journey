@@ -52,7 +52,7 @@ async function main() {
   let grafted = 0;
   for (const a of anims.getRoot().listAnimations()) {
     const role = CLIP_ROLE[a.getName()];
-    if (!role) continue;
+    if (!role) { console.warn(`skipping unmapped clip: ${a.getName()}`); continue; }
     const out = base.createAnimation(role);
     for (const ch of a.listChannels()) {
       const tname = ch.getTargetNode()?.getName();
@@ -70,6 +70,12 @@ async function main() {
         .setTargetNode(target).setTargetPath(ch.getTargetPath()).setSampler(sampler));
     }
     grafted++;
+  }
+
+  const expected = Object.keys(CLIP_ROLE).length;
+  if (grafted !== expected) {
+    console.error(`Expected ${expected} mapped clips but grafted ${grafted} — source clip names may have changed; check CLIP_ROLE against animations.glb.`);
+    process.exit(1);
   }
 
   // Drop the unused emissive (the character was exported self-lit; the engine lights it).
