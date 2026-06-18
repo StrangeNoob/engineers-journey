@@ -42,7 +42,7 @@ export async function createAtmosphere(
   const loader = new LUTCubeLoader();
   const load = async (name: string | null): Promise<THREE.Texture | null> => {
     if (!name) return null;
-    try { return await loader.loadAsync(`/assets/luts/${name}`) as unknown as THREE.Texture; }
+    try { return await loader.loadAsync(`/assets/luts/${name}`); }
     catch { console.warn(`[atmosphere] LUT ${name} missing — using default grade`); return null; }
   };
   const defaultLut = await load(DEFAULT_PROFILE.lut);

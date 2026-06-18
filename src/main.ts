@@ -132,7 +132,7 @@ let postfx: PostFX | null = null;
   // Resolution B: load the color-grade LUT; skip gracefully on failure.
   let lut: THREE.Texture | null = null;
   try {
-    lut = await new LUTCubeLoader().loadAsync("/assets/luts/golden-hour.cube") as unknown as THREE.Texture;
+    lut = await new LUTCubeLoader().loadAsync("/assets/luts/golden-hour.cube");
   } catch (e) {
     console.warn("[postfx] LUT load failed — skipping color grade:", e);
   }
