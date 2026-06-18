@@ -81,17 +81,20 @@ export function usePBRMaterials(root: THREE.Object3D, cfg: PBRConfig): THREE.Obj
     const mat = m.material as THREE.MeshStandardMaterial;
     const hasPBR = mat.isMeshStandardMaterial && !!(mat.normalMap || mat.roughnessMap || mat.metalnessMap);
     if (hasPBR) {
-      if (mat.map) mat.map.colorSpace = THREE.SRGBColorSpace;
-      if (mat.emissiveMap) mat.emissiveMap.colorSpace = THREE.SRGBColorSpace;
-      for (const t of [mat.normalMap, mat.roughnessMap, mat.metalnessMap, mat.aoMap]) {
-        if (t) t.colorSpace = THREE.NoColorSpace;
+      if (mat.map) mat.map.colorSpace = colorSpaceForSlot("albedo");
+      if (mat.emissiveMap) mat.emissiveMap.colorSpace = colorSpaceForSlot("emissive");
+      for (const [t, slot] of [
+        [mat.normalMap, "normal"], [mat.roughnessMap, "roughness"],
+        [mat.metalnessMap, "metalness"], [mat.aoMap, "ao"],
+      ] as const) {
+        if (t) t.colorSpace = colorSpaceForSlot(slot);
       }
       mat.envMapIntensity = cfg.envMapIntensity ?? 1.0;
       mat.needsUpdate = true;
     } else {
       const prev = mat as THREE.MeshToonMaterial | THREE.MeshStandardMaterial;
       const albedo = (prev as THREE.MeshStandardMaterial).map ?? undefined;
-      if (albedo) albedo.colorSpace = THREE.SRGBColorSpace;
+      if (albedo) albedo.colorSpace = colorSpaceForSlot("albedo");
       m.material = new THREE.MeshStandardMaterial({
         ...buildStandardMaterialParams({ ...cfg, color: cfg.color ?? prev.color?.getHex() }),
         map: albedo ?? null,
