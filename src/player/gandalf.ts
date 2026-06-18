@@ -5,6 +5,20 @@ import type { InputState } from "../engine/input";
 
 export type Gait = "idle" | "walk" | "run";
 
+export type Role = "idle" | "walk" | "run" | "wave" | "listening";
+
+/** Pure: resolve each role to its same-named clip, else fall back to `idle`. Missing idle throws. */
+export function resolveClips(
+  roles: Role[],
+  clipsByName: Map<string, THREE.AnimationClip>,
+): Record<Role, THREE.AnimationClip> {
+  const idle = clipsByName.get("idle");
+  if (!idle) throw new Error("Gandalf model has no 'idle' animation clip");
+  const out = {} as Record<Role, THREE.AnimationClip>;
+  for (const r of roles) out[r] = clipsByName.get(r) ?? idle;
+  return out;
+}
+
 /** Pure: world-space horizontal move direction (normalized) from axes + camera yaw. */
 export function cameraRelativeMove(forward: number, right: number, camYaw: number) {
   // camera looks down -Z at yaw 0; forward maps to -Z, right to +X, rotated by yaw.
