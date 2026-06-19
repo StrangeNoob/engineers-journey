@@ -43,7 +43,7 @@ export class StopManager {
     private readonly placed: PlacedStop[],
     private readonly content: Record<string, Stop>,
     private readonly journal: Journal,
-    private readonly onChange: () => void,
+    private readonly onChange: (id: string) => void,
     private readonly fx: RecallFx,
   ) {
     this.flat = placed.map((p) => ({ id: p.id, x: p.collider.x, z: p.collider.z }));
@@ -71,7 +71,7 @@ export class StopManager {
     const sx = ps.scrollPos.x, sz = ps.scrollPos.z;
     this.prompt.hide();
     this.journal.recall(id);
-    this.onChange();
+    this.onChange(id);
     this.fx.gandalf.playGesture("listening", true);          // hold the listening pose
     this.fx.scroll.show(sx, sz, Math.atan2(this.lastX - sx, this.lastZ - sz)); // face the player
     this.fx.audio.scroll();                                  // parchment rustle

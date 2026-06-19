@@ -6,3 +6,4 @@ dist/
 # raw, pre-optimized source models live elsewhere; only optimized GLBs are committed
 *.raw.glb
 assets-src/
+config.bat
