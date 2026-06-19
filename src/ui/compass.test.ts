@@ -13,6 +13,11 @@ describe("bearingToStripX", () => {
     expect(x).not.toBeNull();
     expect(x!).toBeGreaterThan(W / 2);
   });
+  it("offsets a target on the other side toward the opposite edge", () => {
+    const x = bearingToStripX(0, 0, 0, -10, 5.77, COMPASS_FOV, W); // ~60° to the left
+    expect(x).not.toBeNull();
+    expect(x!).toBeLessThan(W / 2);
+  });
   it("returns null for a target behind", () => {
     expect(bearingToStripX(0, 0, 0, 0, -10, COMPASS_FOV, W)).toBeNull();
   });

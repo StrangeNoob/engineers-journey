@@ -10,9 +10,8 @@ export function bearingToStripX(
   camYaw: number, fromX: number, fromZ: number, toX: number, toZ: number, fovRad: number, stripW: number,
 ): number | null {
   const bearing = Math.atan2(toX - fromX, toZ - fromZ);
-  let rel = (bearing - camYaw) % (Math.PI * 2);
-  if (rel > Math.PI) rel -= Math.PI * 2;
-  if (rel < -Math.PI) rel += Math.PI * 2;
+  let rel = bearing - camYaw;
+  rel = rel - Math.round(rel / (Math.PI * 2)) * (Math.PI * 2); // wrap to (-PI, PI]
   if (Math.abs(rel) > fovRad / 2) return null;
   return (rel / (fovRad / 2)) * (stripW / 2) + stripW / 2;
 }
