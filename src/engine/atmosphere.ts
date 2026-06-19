@@ -56,6 +56,11 @@ export async function createAtmosphere(
   const baseFar = Math.min(DEFAULT_PROFILE.fog.far, drawDistance);
   let activeId = "";
   let displayMix = 0; // the mix actually applied; eased toward the goal each frame
+  // Cap how strongly a region LUT can override the base grade. At a region centre the
+  // spatial weight reaches 1.0; blending the region LUT in at full strength over-graded
+  // the scene (oversaturated greens at Edoras, crushed shadows at Isengard). 0.6 keeps
+  // each region's mood while letting the neutral base grade carry the rest.
+  const LUT_STRENGTH = 0.6;
 
   return {
     update(x, z, dt) {
@@ -73,12 +78,12 @@ export async function createAtmosphere(
         if (displayMix < 0.02) {
           if (region) { const tex = lutFor.get(region.id); if (tex) postfx.setRegionLUT(tex); }
           activeId = targetId;
-          goal = spatialT;
+          goal = spatialT * LUT_STRENGTH;
         } else {
           goal = 0; // dip toward DEFAULT before the swap
         }
       } else {
-        goal = spatialT;
+        goal = spatialT * LUT_STRENGTH;
       }
       // frame-rate-independent easing toward the goal
       displayMix += (goal - displayMix) * Math.min(1, dt * 4);
