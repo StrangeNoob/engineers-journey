@@ -24,6 +24,7 @@ import { FollowCamera } from "./player/followCamera";
 import { Journal } from "./systems/journal";
 import { StopManager } from "./systems/interaction";
 import { Hud } from "./ui/hud";
+import { SyncMeter } from "./ui/syncMeter";
 import { mountTouchControls } from "./ui/touchControls";
 import { showBoot, hideBoot } from "./ui/loader";
 import { MapOverlay } from "./ui/mapOverlay";
@@ -75,7 +76,8 @@ const cam = new FollowCamera();
 const gandalf = new Gandalf();
 const journal = new Journal(STOPS.map((s) => s.id));
 const hud = new Hud();
-hud.set(journal.count, journal.total);
+const syncMeter = new SyncMeter(STOPS.map((s) => s.id));
+syncMeter.set((id) => journal.isVisited(id));
 
 const audio = new AudioEngine();
 hud.setMuted(audio.isMuted);
@@ -99,7 +101,7 @@ let postfx: PostFX | null = null;
   const landmarks = placeLandmarks(scene);
   landmarks.update(gandalf.root.position);
   const scroll = await buildScrollReveal(scene);
-  const stops = new StopManager(landmarks.stops, content, journal, () => hud.set(journal.count, journal.total), {
+  const stops = new StopManager(landmarks.stops, content, journal, () => syncMeter.set((id) => journal.isVisited(id)), {
     gandalf, scroll, camera: cam, audio,
   });
 
