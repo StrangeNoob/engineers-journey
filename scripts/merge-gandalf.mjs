@@ -22,6 +22,7 @@ const CLIP_ROLE = {
   Running: "run",
   Talk_with_Left_Hand_Raised: "wave",
   Talk_with_Hands_Open: "listening",
+  Regular_Jump: "jump",
 };
 
 async function main() {
