@@ -56,8 +56,8 @@ export class Waypoints {
     const w = innerWidth, h = innerHeight;
     for (const p of STOP_PLACEMENTS) {
       const m = this.markers.get(p.id)!;
-      this.v.set(p.x, (p.height ?? 6) + 1, p.z);
-      const ndc = this.v.clone().project(camera);
+      // project in place — this.v is freshly set each iteration and unused after, so no clone/alloc
+      const ndc = this.v.set(p.x, (p.height ?? 6) + 1, p.z).project(camera);
       const behind = ndc.z > 1;
       const pos = screenMarker(ndc.x, ndc.y, behind, 28, w, h);
       const visited = isVisited(p.id);
@@ -82,6 +82,9 @@ export class Waypoints {
     }
   }
 
+  // Two independent hide axes: setVisible() bulk-hides the whole HUD layer via `visibility`
+  // (during reveal/tale/map); update() toggles per-marker `display` for the off-screen-visited
+  // declutter. Different CSS properties, so they don't fight; update() only runs when visible.
   setVisible(v: boolean): void {
     for (const m of this.markers.values()) m.wrap.style.visibility = v ? "" : "hidden";
   }
