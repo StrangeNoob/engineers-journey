@@ -114,7 +114,7 @@ export function createPostFX(
         dualLut = new DualLUTEffect(lut, size);
         return dualLut;
       }
-      case "vignette": return new VignetteEffect({ darkness: 0.5, offset: 0.35 });
+      case "vignette": return new VignetteEffect({ darkness: 0.32, offset: 0.45 });
       case "grain": return new NoiseEffect({ blendFunction: BlendFunction.OVERLAY, premultiply: true });
       case "smaa": return new SMAAEffect();
       case "chromaticAberration": return new ChromaticAberrationEffect();
