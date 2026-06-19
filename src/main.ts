@@ -1,6 +1,5 @@
 import "./styles/main.css";
 import * as THREE from "three";
-import { LUTCubeLoader } from "postprocessing";
 import { STOPS, CONTACT } from "./data/career";
 import { createRenderer, configureRenderer } from "./engine/renderer";
 import { createScene } from "./engine/scene";
@@ -38,8 +37,6 @@ import { buildScrollReveal } from "./world/scrollReveal";
 import { AudioEngine, footstepDue } from "./audio/audioEngine";
 import { mountIntro } from "./ui/intro";
 import { createAtmosphere } from "./engine/atmosphere";
-import { buildViewpoint, viewpointHeight } from "./world/viewpoint";
-import { ViewpointTrigger } from "./systems/viewpoint";
 
 /** Resolve a quality level: localStorage override → URL param → device tier default. */
 function resolveLevel(tier: ReturnType<typeof detectQuality>["tier"]): QualityLevel {
@@ -56,6 +53,7 @@ const boot = showBoot();
 const quality = detectQuality();
 const level = resolveLevel(quality.tier);
 const flags = effectFlags(level);
+flags.lut = false; // colour-grade LUTs (.cube) removed — AgX tone mapping carries the look
 
 const renderer = createRenderer();
 renderer.setPixelRatio(quality.pixelRatio);
@@ -69,7 +67,6 @@ renderer.domElement.setAttribute("aria-label",
 
 const scene = createScene();
 createTerrain(scene);
-buildViewpoint(scene);
 
 const input = new Input();
 input.attach(renderer.domElement);
@@ -118,23 +115,8 @@ let postfx: PostFX | null = null;
   let grassWind: ((t: number) => void) | null = null;
   let elapsed = 0;
 
-  // Compose the walkable ground surface: flat ground (0), bridge arch, and the viewpoint knoll.
-  const groundHeightAt = (x: number, z: number) => Math.max(0, bridgeHeight(x, z), viewpointHeight(x, z));
-
-  // Caption overlay shown during the summit reveal (reuses the intro/fade visual language).
-  const revealCaption = document.createElement("div");
-  revealCaption.style.cssText =
-    "position:fixed;left:50%;bottom:36px;transform:translateX(-50%);z-index:9;pointer-events:none;" +
-    "background:rgba(244,236,216,.92);border:1px solid #d8cba8;border-radius:14px;" +
-    "padding:11px 22px;font:15px/1.5 'Iowan Old Style',Georgia,serif;color:#2e2a22;" +
-    "opacity:0;transition:opacity .6s ease;white-space:nowrap;";
-  revealCaption.textContent = "The long road lies ahead — each step a chapter of the journey.";
-  document.body.appendChild(revealCaption);
-
-  const viewpoint = new ViewpointTrigger(() => {
-    cam.startReveal();
-    revealCaption.style.opacity = "1";
-  });
+  // Compose the walkable ground surface: flat ground (0) + the bridge arch.
+  const groundHeightAt = (x: number, z: number) => Math.max(0, bridgeHeight(x, z));
 
   const fade = createFade();
   const map = new MapOverlay(
@@ -159,13 +141,8 @@ let postfx: PostFX | null = null;
   // Cinematic environment (HDRI/IBL + CSM + fog) and the post-processing stack.
   const environment = await createEnvironment(renderer, scene, cam.camera, flags, quality.drawDistance);
 
-  // Resolution B: load the color-grade LUT; skip gracefully on failure.
-  let lut: THREE.Texture | null = null;
-  try {
-    lut = await new LUTCubeLoader().loadAsync("/assets/luts/golden-hour.cube");
-  } catch (e) {
-    console.warn("[postfx] LUT load failed — skipping color grade:", e);
-  }
+  // Colour-grade LUTs removed — pass null; the lut effect is disabled via flags.lut above.
+  const lut: THREE.Texture | null = null;
 
   configureRenderer(renderer, { exposure: 1.05, toneMapInRenderer: false });
   postfx = createPostFX(renderer, scene, cam.camera, flags, lut);
@@ -185,20 +162,12 @@ let postfx: PostFX | null = null;
   startLoop((dt) => {
     elapsed += dt;
     input.beginFrame();
-    const hudVisible = !map.isOpen && !stops.isPanelOpen && !cam.isRevealing;
+    const hudVisible = !map.isOpen && !stops.isPanelOpen;
     compass.setVisible(hudVisible);
     waypoints.setVisible(hudVisible);
     if (!map.isOpen) {
-      const revealing = cam.isRevealing;
-      // End the reveal on any movement or jump input
-      if (revealing && (input.state.move.forward !== 0 || input.state.move.right !== 0 || input.state.jump)) {
-        cam.endReveal();
-        revealCaption.style.opacity = "0";
-      }
-      if (!cam.isRevealing && revealCaption.style.opacity !== "0") revealCaption.style.opacity = "0";
-
-      // tale panel or reveal: stop walking, keep animating + camera easing
-      const frozen = stops.isPanelOpen || cam.isRevealing;
+      // tale panel: stop walking, keep animating + camera easing
+      const frozen = stops.isPanelOpen;
       const moveInput = frozen ? { ...input.state, move: { forward: 0, right: 0 }, run: false } : input.state;
       // Move the player FIRST, then point the camera at the updated position (avoids the
       // one-frame camera lag that caused screen jitter while walking).
@@ -215,7 +184,6 @@ let postfx: PostFX | null = null;
         compass.update(cam.yawAngle, gandalf.root.position.x, gandalf.root.position.z);
         waypoints.update(cam.camera, gandalf.root.position.x, gandalf.root.position.z, (id) => journal.isVisited(id));
       }
-      if (!frozen) viewpoint.update(gandalf.root.position.x, gandalf.root.position.z);
       if (!frozen) {
         footDist += speed * dt;
         if (footstepDue(footDist, pickGait(speed, input.state.run))) { audio.footstep(); footDist = 0; }
