@@ -43,7 +43,7 @@ export function gaitWeights(gait: Gait): { idle: number; walk: number; run: numb
 }
 
 /** A solid circular footprint on the ground plane. */
-export interface Collider { x: number; z: number; r: number; }
+export interface Collider { x: number; z: number; r: number; low?: boolean; }
 
 /**
  * Pure: push (x,z) out of any overlapping collider so a body of `radius`
@@ -51,9 +51,10 @@ export interface Collider { x: number; z: number; r: number; }
  * (resolving one circle pushes into another) still settles. Returns the
  * corrected position.
  */
-export function resolveCollisions(x: number, z: number, colliders: Collider[], radius: number): { x: number; z: number } {
+export function resolveCollisions(x: number, z: number, colliders: Collider[], radius: number, skipLow = false): { x: number; z: number } {
   for (let pass = 0; pass < 2; pass++) {
     for (const c of colliders) {
+      if (skipLow && c.low) continue;
       const dx = x - c.x, dz = z - c.z;
       const min = c.r + radius;
       const d2 = dx * dx + dz * dz;

@@ -61,7 +61,7 @@ export function cullTreesNearCamera(cx: number, cz: number, r = 3): void {
   }
 }
 
-interface Collider { x: number; z: number; r: number; }
+interface Collider { x: number; z: number; r: number; low?: boolean; }
 
 async function instance(scene: THREE.Scene, name: string, count: number, fit: number,
   place: (i: number, d: THREE.Object3D) => boolean,
