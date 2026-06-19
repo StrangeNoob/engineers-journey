@@ -34,6 +34,8 @@ import { buildScrollReveal } from "./world/scrollReveal";
 import { AudioEngine, footstepDue } from "./audio/audioEngine";
 import { mountIntro } from "./ui/intro";
 import { createAtmosphere } from "./engine/atmosphere";
+import { buildViewpoint, viewpointHeight } from "./world/viewpoint";
+import { ViewpointTrigger } from "./systems/viewpoint";
 
 /** Resolve a quality level: localStorage override → URL param → device tier default. */
 function resolveLevel(tier: ReturnType<typeof detectQuality>["tier"]): QualityLevel {
@@ -63,6 +65,7 @@ renderer.domElement.setAttribute("aria-label",
 
 const scene = createScene();
 createTerrain(scene);
+buildViewpoint(scene);
 
 const input = new Input();
 input.attach(renderer.domElement);
@@ -105,6 +108,24 @@ let postfx: PostFX | null = null;
   const colliders = [...landmarks.colliders];
   let grassWind: ((t: number) => void) | null = null;
   let elapsed = 0;
+
+  // Compose the walkable ground surface: flat ground (0), bridge arch, and the viewpoint knoll.
+  const groundHeightAt = (x: number, z: number) => Math.max(0, bridgeHeight(x, z), viewpointHeight(x, z));
+
+  // Caption overlay shown during the summit reveal (reuses the intro/fade visual language).
+  const revealCaption = document.createElement("div");
+  revealCaption.style.cssText =
+    "position:fixed;left:50%;bottom:36px;transform:translateX(-50%);z-index:9;pointer-events:none;" +
+    "background:rgba(244,236,216,.92);border:1px solid #d8cba8;border-radius:14px;" +
+    "padding:11px 22px;font:15px/1.5 'Iowan Old Style',Georgia,serif;color:#2e2a22;" +
+    "opacity:0;transition:opacity .6s ease;white-space:nowrap;";
+  revealCaption.textContent = "The long road lies ahead — each step a chapter of the journey.";
+  document.body.appendChild(revealCaption);
+
+  const viewpoint = new ViewpointTrigger(() => {
+    cam.startReveal();
+    revealCaption.style.opacity = "1";
+  });
 
   const fade = createFade();
   const map = new MapOverlay(
@@ -156,12 +177,20 @@ let postfx: PostFX | null = null;
     elapsed += dt;
     input.beginFrame();
     if (!map.isOpen) {
-      const frozen = stops.isPanelOpen; // tale open: stop walking, keep animating + camera easing
+      const revealing = cam.isRevealing;
+      // End the reveal on any movement or jump input
+      if (revealing && (input.state.move.forward !== 0 || input.state.move.right !== 0 || input.state.jump)) {
+        cam.endReveal();
+        revealCaption.style.opacity = "0";
+      }
+      if (!cam.isRevealing && revealCaption.style.opacity !== "0") revealCaption.style.opacity = "0";
+
+      // tale panel or reveal: stop walking, keep animating + camera easing
+      const frozen = stops.isPanelOpen || cam.isRevealing;
       const moveInput = frozen ? { ...input.state, move: { forward: 0, right: 0 }, run: false } : input.state;
       // Move the player FIRST, then point the camera at the updated position (avoids the
       // one-frame camera lag that caused screen jitter while walking).
-      const speed = gandalf.update(dt, moveInput, cam.yawAngle, colliders);
-      if (!frozen) gandalf.root.position.y = bridgeHeight(gandalf.root.position.x, gandalf.root.position.z);
+      const speed = gandalf.update(dt, moveInput, cam.yawAngle, colliders, groundHeightAt);
       atmosphere.update(gandalf.root.position.x, gandalf.root.position.z, dt);
       environment.update(gandalf.root.position.x, gandalf.root.position.z);
       cam.update(gandalf.root.position, input, dt, landmarks.obstacles);
@@ -170,6 +199,7 @@ let postfx: PostFX | null = null;
       scroll.update(dt);
       landmarks.update(gandalf.root.position);
       stops.update(gandalf.root.position, cam.camera, input);
+      if (!frozen) viewpoint.update(gandalf.root.position.x, gandalf.root.position.z);
       if (!frozen) {
         footDist += speed * dt;
         if (footstepDue(footDist, pickGait(speed, input.state.run))) { audio.footstep(); footDist = 0; }

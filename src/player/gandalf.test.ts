@@ -66,3 +66,20 @@ describe("resolveClips", () => {
     expect(() => resolveClips(ROLES, new Map([["walk", clip("walk")]]))).toThrow(/idle/i);
   });
 });
+
+describe("resolveCollisions skipLow", () => {
+  const low = [{ x: 1, z: 0, r: 1, low: true }];
+  it("pushes out of a low collider on the ground", () => {
+    const p = resolveCollisions(0.5, 0, low, 0.5, false);
+    expect(p.x).toBeLessThan(0.5); // pushed away from the collider at x=1
+  });
+  it("ignores a low collider when skipLow (airborne)", () => {
+    const p = resolveCollisions(0.5, 0, low, 0.5, true);
+    expect(p).toEqual({ x: 0.5, z: 0 }); // unchanged — jumped over
+  });
+  it("still blocks a non-low collider when skipLow", () => {
+    const tall = [{ x: 1, z: 0, r: 1 }];
+    const p = resolveCollisions(0.5, 0, tall, 0.5, true);
+    expect(p.x).toBeLessThan(0.5);
+  });
+});
