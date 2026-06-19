@@ -188,6 +188,9 @@ export class Gandalf {
     const groundY = groundHeightAt(this.root.position.x, this.root.position.z);
     const wasGrounded = this.jump.grounded;
     this.jump = integrateJump(this.jump, groundY, input.jump, dt, JUMP_V, GRAVITY);
+    // Walking down a slope (bridge/knoll) can momentarily read as airborne when groundY drops
+    // faster than the feet — harmless today (no `low` colliders sit on a slope), but if one is
+    // ever placed there, it could be skipped for a frame. Keep low props off slopes.
     const airborne = (this.jump.y - groundY) > AIRBORNE_CLEAR_H;
 
     // --- collision (skip low obstacles while airborne) ---

@@ -74,7 +74,7 @@ Done means:
 - `Collider { x, z, r, low?: boolean }`. `resolveCollisions(x, z, colliders, radius, skipLow = false)` ignores `low` colliders when `skipLow` is true.
 - `skipLow` is true while `(y − groundY) > AIRBORNE_CLEAR_H` — i.e. Gandalf is high enough in a jump to clear knee/waist-high props.
 - `groundHeightAt(x, z)` returns the max of terrain (0), `bridgeHeight(x,z)`, and `viewpointHeight(x,z)`; the jump integrator lands against it.
-- Builders tag: rocks (`nature.ts`), route markers/fences (`road.ts`), stream-edge colliders (`water.ts`) → `low: true`. Buildings, tree trunks, Argonath stay blocking.
+- Builders tag genuinely low props → `low: true`; buildings, tree trunks, Argonath stay blocking. (Implementation note: the world's only knee/waist-high collidable props are the small ambient ones — the campfire and the route-markers in `ambient.ts` — so those are what got tagged; `nature.ts`/`road.ts`/`water.ts` had no low colliders to tag.)
 
 ## Viewpoint
 
