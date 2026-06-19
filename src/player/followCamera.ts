@@ -3,6 +3,11 @@ import type { Input } from "../engine/input";
 
 const REDUCED = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+// Reveal vantage: high + pulled back, slowly orbiting the world center
+const REVEAL_HEIGHT = 18;
+const REVEAL_BACK = 22;
+const REVEAL_ORBIT_SPEED = 0.18; // radians per second
+
 export class FollowCamera {
   readonly camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.1, 700);
   private yaw = 0;
@@ -14,13 +19,40 @@ export class FollowCamera {
   private readonly ray = new THREE.Raycaster();
 
   private focused = false;
+  private revealT = 0;
+  private revealOrbitAngle = 0;
+
   /** When on, the camera eases closer to frame the tale scroll; off restores normal follow. */
   focus(on: boolean): void { this.focused = on; }
 
   get yawAngle(): number { return this.yaw; }
 
+  /** Start the cinematic reveal; camera orbits the world center for `seconds`. */
+  startReveal(seconds = 5): void { this.revealT = seconds; }
+
+  /** True while a cinematic reveal is in progress. */
+  get isRevealing(): boolean { return this.revealT > 0; }
+
+  /** Cancel the reveal immediately and return to normal follow. */
+  endReveal(): void { this.revealT = 0; }
+
   /** Consume look deltas, orbit, trail the target, and pull in if a building blocks the view. */
   update(target: THREE.Vector3, input: Input, dt: number, obstacles: THREE.Object3D[] = []): void {
+    if (this.revealT > 0) {
+      this.revealT = Math.max(0, this.revealT - dt);
+      this.revealOrbitAngle += REVEAL_ORBIT_SPEED * dt;
+
+      // Ease toward the reveal vantage: high above the world center, slowly circling
+      const revealPos = this.tmp.set(
+        Math.sin(this.revealOrbitAngle) * REVEAL_BACK,
+        REVEAL_HEIGHT,
+        Math.cos(this.revealOrbitAngle) * REVEAL_BACK,
+      );
+      this.camera.position.lerp(revealPos, REDUCED ? 1 : 1 - Math.exp(-dt * 1.5));
+      this.camera.lookAt(0, 0, 0);
+      return;
+    }
+
     this.yaw -= input.state.lookDX * 0.0035;
     this.pitch = THREE.MathUtils.clamp(this.pitch - input.state.lookDY * 0.0035, 0.12, 1.2);
     const targetDist = this.focused ? 6.5 : 11;
