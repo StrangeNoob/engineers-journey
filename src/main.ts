@@ -199,7 +199,7 @@ let postfx: PostFX | null = null;
       scroll.update(dt);
       landmarks.update(gandalf.root.position);
       stops.update(gandalf.root.position, cam.camera, input);
-      viewpoint.update(gandalf.root.position.x, gandalf.root.position.z);
+      if (!frozen) viewpoint.update(gandalf.root.position.x, gandalf.root.position.z);
       if (!frozen) {
         footDist += speed * dt;
         if (footstepDue(footDist, pickGait(speed, input.state.run))) { audio.footstep(); footDist = 0; }
