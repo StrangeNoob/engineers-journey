@@ -24,6 +24,10 @@ import { FollowCamera } from "./player/followCamera";
 import { Journal } from "./systems/journal";
 import { StopManager } from "./systems/interaction";
 import { Hud } from "./ui/hud";
+import { SyncMeter } from "./ui/syncMeter";
+import { Compass } from "./ui/compass";
+import { Waypoints } from "./ui/waypoints";
+import { Flourish } from "./ui/flourish";
 import { mountTouchControls } from "./ui/touchControls";
 import { showBoot, hideBoot } from "./ui/loader";
 import { MapOverlay } from "./ui/mapOverlay";
@@ -75,7 +79,11 @@ const cam = new FollowCamera();
 const gandalf = new Gandalf();
 const journal = new Journal(STOPS.map((s) => s.id));
 const hud = new Hud();
-hud.set(journal.count, journal.total);
+const syncMeter = new SyncMeter(STOPS.map((s) => s.id));
+syncMeter.set((id) => journal.isVisited(id));
+const compass = new Compass(journal);
+const waypoints = new Waypoints(Object.fromEntries(STOPS.map((s) => [s.id, s.locale])));
+const flourish = new Flourish();
 
 const audio = new AudioEngine();
 hud.setMuted(audio.isMuted);
@@ -99,9 +107,10 @@ let postfx: PostFX | null = null;
   const landmarks = placeLandmarks(scene);
   landmarks.update(gandalf.root.position);
   const scroll = await buildScrollReveal(scene);
-  const stops = new StopManager(landmarks.stops, content, journal, () => hud.set(journal.count, journal.total), {
-    gandalf, scroll, camera: cam, audio,
-  });
+  const stops = new StopManager(landmarks.stops, content, journal, (id) => {
+    syncMeter.set((i) => journal.isVisited(i));
+    flourish.play(content[id]?.locale ?? id);
+  }, { gandalf, scroll, camera: cam, audio });
 
   // one shared list of solid footprints; every builder appends to it as its assets
   // load, and Gandalf is pushed out of any he overlaps each frame.
@@ -176,6 +185,9 @@ let postfx: PostFX | null = null;
   startLoop((dt) => {
     elapsed += dt;
     input.beginFrame();
+    const hudVisible = !map.isOpen && !stops.isPanelOpen && !cam.isRevealing;
+    compass.setVisible(hudVisible);
+    waypoints.setVisible(hudVisible);
     if (!map.isOpen) {
       const revealing = cam.isRevealing;
       // End the reveal on any movement or jump input
@@ -199,6 +211,10 @@ let postfx: PostFX | null = null;
       scroll.update(dt);
       landmarks.update(gandalf.root.position);
       stops.update(gandalf.root.position, cam.camera, input);
+      if (hudVisible) {
+        compass.update(cam.yawAngle, gandalf.root.position.x, gandalf.root.position.z);
+        waypoints.update(cam.camera, gandalf.root.position.x, gandalf.root.position.z, (id) => journal.isVisited(id));
+      }
       if (!frozen) viewpoint.update(gandalf.root.position.x, gandalf.root.position.z);
       if (!frozen) {
         footDist += speed * dt;
