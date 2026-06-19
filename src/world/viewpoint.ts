@@ -22,6 +22,9 @@ export function buildViewpoint(scene: THREE.Scene): void {
   for (let i = 0; i < pos.count; i++) {
     // CircleGeometry lies in XY before we rotate; raise Z by the height at that (x,y) offset.
     const lx = pos.getX(i), ly = pos.getY(i);
+    // CircleGeometry is origin-centered, so (lx,ly) are local offsets from PEAK;
+    // sampling viewpointHeight at PEAK+offset keeps the walkable surface identical
+    // to the height the character controller queries for the same world (x,z).
     pos.setZ(i, viewpointHeight(PEAK.x + lx, PEAK.z + ly));
   }
   geo.computeVertexNormals();
@@ -34,11 +37,12 @@ export function buildViewpoint(scene: THREE.Scene): void {
 
   // Simple stone cairn (stacked boxes) at the summit.
   const stone = new THREE.MeshStandardMaterial({ color: 0x8a8a86, roughness: 0.9 });
+  const peakY = viewpointHeight(PEAK.x, PEAK.z);
   const cairn = new THREE.Group();
   for (let i = 0; i < 3; i++) {
     const s = 0.9 - i * 0.22;
     const b = new THREE.Mesh(new THREE.BoxGeometry(s, 0.45, s), stone);
-    b.position.y = KNOLL_H + 0.22 + i * 0.42;
+    b.position.y = peakY + 0.22 + i * 0.42;
     b.castShadow = b.receiveShadow = true;
     cairn.add(b);
   }
