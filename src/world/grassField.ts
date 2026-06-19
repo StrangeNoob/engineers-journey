@@ -2,6 +2,19 @@ import * as THREE from "three";
 import type { Quality } from "../engine/quality";
 import { inAClearing, roadDist } from "./nature";
 import { RIVER_POINTS } from "../data/world";
+import { REGIONS } from "../data/regions";
+
+// True if (x,z) sits on a region's solid paved/rock floor patch — grass shouldn't sprout
+// through cobbles/stone (Bree, Isengard, Minas). Skips only the solid core (radius); grass
+// resumes through the patch's falloff band so the edge still blends into the meadow.
+function onPavedPatch(x: number, z: number): boolean {
+  for (const region of REGIONS) {
+    if (!region.ground) continue;
+    const dx = x - region.center.x, dz = z - region.center.z;
+    if (dx * dx + dz * dz < region.radius * region.radius) return true;
+  }
+  return false;
+}
 
 // min distance from (x,z) to the river polyline — keep grass out of the water
 function riverDist(x: number, z: number): number {
@@ -86,7 +99,7 @@ export async function buildGrassField(scene: THREE.Scene, quality: Quality): Pro
       guard++;
       const a = rnd() * 6.283, r = Math.pow(rnd(), 0.8) * 120; // a touch denser toward the centre
       const x = Math.cos(a) * r, z = Math.sin(a) * r;
-      if (inAClearing(x, z, -2) || roadDist(x, z) < 2.8 || riverDist(x, z) < 2.5) continue; // hug the road edge, clear doorsteps + stream
+      if (inAClearing(x, z, -2) || roadDist(x, z) < 2.8 || riverDist(x, z) < 2.5 || onPavedPatch(x, z)) continue; // hug the road edge, clear doorsteps + stream + paved squares
       const h = 1.2 + rnd() * 0.7;                                 // ~1.2–1.9 m tall — waist/chest high
       d.position.set(x, 0, z);
       d.rotation.y = rnd() * 6.283;
