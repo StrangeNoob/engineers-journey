@@ -16,21 +16,24 @@ export interface InputState {
   lookDX: number;     // accumulated look delta since last consume
   lookDY: number;
   interact: boolean;  // edge-triggered this frame
+  jump: boolean;      // edge-triggered this frame (Space)
 }
 
 /** Collects keyboard + pointer input; touch fills `move`/look via setters. */
 export class Input {
-  readonly state: InputState = { move: { forward: 0, right: 0 }, run: false, lookDX: 0, lookDY: 0, interact: false };
+  readonly state: InputState = { move: { forward: 0, right: 0 }, run: false, lookDX: 0, lookDY: 0, interact: false, jump: false };
   private keys = new Set<string>();
   private dragging = false;
   private touchMove: MoveAxes | null = null;
   private pendingInteract = false;
+  private pendingJump = false;
 
   attach(dom: HTMLElement) {
     addEventListener("keydown", (e) => {
       this.keys.add(e.code);
       if (e.code === "ShiftLeft" || e.code === "ShiftRight") this.state.run = true;
       if (e.code === "KeyE" && !e.repeat) this.pendingInteract = true; // ignore auto-repeat
+      if (e.code === "Space" && !e.repeat) this.pendingJump = true;
     });
     addEventListener("keyup", (e) => {
       this.keys.delete(e.code);
@@ -51,12 +54,16 @@ export class Input {
   addLook(dx: number, dy: number) { this.state.lookDX += dx; this.state.lookDY += dy; }
   /** touch interact button. */
   triggerInteract() { this.pendingInteract = true; }
+  /** touch/programmatic jump button. */
+  triggerJump() { this.pendingJump = true; }
 
   /** call once per frame BEFORE reading state.move/interact, AFTER camera reads look. */
   beginFrame() {
     this.state.move = this.touchMove ?? keyboardMove(this.keys);
     this.state.interact = this.pendingInteract;
     this.pendingInteract = false;
+    this.state.jump = this.pendingJump;
+    this.pendingJump = false;
   }
   /** call after camera consumes look deltas. */
   endFrame() { this.state.lookDX = 0; this.state.lookDY = 0; }
