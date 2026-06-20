@@ -34,7 +34,7 @@ import { MapOverlay } from "./ui/mapOverlay";
 import { createFade } from "./ui/fade";
 import { travelTarget } from "./world/mapProjection";
 import { STOP_PLACEMENTS } from "./data/world";
-import { buildScrollReveal } from "./world/scrollReveal";
+import { buildScrolls } from "./world/scrollReveal";
 import { AudioEngine, footstepDue } from "./audio/audioEngine";
 import { mountIntro } from "./ui/intro";
 import { createAtmosphere } from "./engine/atmosphere";
@@ -104,11 +104,27 @@ let postfx: PostFX | null = null;
 
   const landmarks = placeLandmarks(scene);
   landmarks.update(gandalf.root.position);
-  const scroll = await buildScrollReveal(scene);
+  const scrolls = await buildScrolls(scene, landmarks.stops, content);
   const stops = new StopManager(landmarks.stops, content, journal, (id) => {
     syncMeter.set((i) => journal.isVisited(i));
     flourish.play(content[id]?.locale ?? id);
-  }, { gandalf, scroll, camera: cam, audio });
+  }, { gandalf, camera: cam, audio });
+
+  // Tap/click a landmark's 3D scroll to open its tale — works on mobile (no E key needed).
+  // A tap is a pointerup close to where the pointerdown landed (not a look-drag).
+  const pickRay = new THREE.Raycaster();
+  let downX = 0, downY = 0;
+  renderer.domElement.addEventListener("pointerdown", (e) => { downX = e.clientX; downY = e.clientY; });
+  renderer.domElement.addEventListener("pointerup", (e) => {
+    if (map.isOpen || stops.isPanelOpen) return;
+    if (Math.hypot(e.clientX - downX, e.clientY - downY) > 8) return; // a drag, not a tap
+    pickRay.setFromCamera(new THREE.Vector2((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1), cam.camera);
+    const hit = pickRay.intersectObjects(scrolls.pickables, true)[0];
+    if (!hit) return;
+    let o: THREE.Object3D | null = hit.object;
+    while (o && !o.userData.stopId) o = o.parent;
+    if (o?.userData.stopId) stops.openById(o.userData.stopId as string);
+  });
 
   // one shared list of solid footprints; every builder appends to it as its assets
   // load, and Gandalf is pushed out of any he overlaps each frame.
@@ -182,7 +198,6 @@ let postfx: PostFX | null = null;
       cullTreesNearCamera(cam.camera.position.x, cam.camera.position.z, 5);
       grassWind?.(elapsed);
       waterRipple?.(dt);
-      scroll.update(dt);
       landmarks.update(gandalf.root.position);
       stops.update(gandalf.root.position, cam.camera, input);
       if (hudVisible) {

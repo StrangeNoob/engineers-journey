@@ -27,7 +27,6 @@ export function nearestStop<T extends { id: string; x: number; z: number }>(
  *  manager stays decoupled from the Gandalf/camera/audio/scroll concretes). */
 export interface RecallFx {
   gandalf: { playGesture(name: "wave" | "listening", hold?: boolean): void; releaseGesture(): void };
-  scroll: { show(x: number, z: number, faceYaw: number): void; hide(): void };
   camera: { focus(on: boolean): void };
   audio: { scroll(): void };
 }
@@ -37,8 +36,6 @@ export class StopManager {
   private prompt = new Prompt();
   private panel = new TalePanel();
   private flat: { id: string; x: number; z: number }[];
-  private lastX = 0;
-  private lastZ = 0;
   constructor(
     private readonly placed: PlacedStop[],
     private readonly content: Record<string, Stop>,
@@ -53,32 +50,30 @@ export class StopManager {
   get isPanelOpen(): boolean { return this.panel.isOpen; }
 
   update(playerPos: THREE.Vector3, camera: THREE.Camera, input: Input): void {
-    this.lastX = playerPos.x; this.lastZ = playerPos.z;
     if (this.panel.isOpen) { this.prompt.hide(); return; }
     const near = nearestStop(playerPos.x, playerPos.z, this.flat, this.rangeFor());
     if (!near) { this.prompt.hide(); return; }
     const ps = this.placed.find((p) => p.id === near.id)!;
     this.prompt.showAt(ps.scrollPos, camera);
-    if (input.state.interact) this.recall(near.id);
+    if (input.state.interact) this.openById(near.id);
   }
 
   private rangeFor(): number { return 14; } // proximity from a stop's centre (covers larger footprints)
 
-  private recall(id: string): void {
+  /** Open a stop's tale. Driven by the proximity E-press AND by tapping/clicking its 3D scroll
+   *  (so the tale is reachable on mobile without a keyboard). The scrolls are persistent props. */
+  openById(id: string): void {
+    if (this.panel.isOpen) return;
     const tale = this.content[id];
     if (!tale) { console.warn(`no tale content for stop "${id}"`); return; }
-    const ps = this.placed.find((p) => p.id === id)!;
-    const sx = ps.scrollPos.x, sz = ps.scrollPos.z;
     this.prompt.hide();
     this.journal.recall(id);
     this.onChange(id);
     this.fx.gandalf.playGesture("listening", true);          // hold the listening pose
-    this.fx.scroll.show(sx, sz, Math.atan2(this.lastX - sx, this.lastZ - sz)); // face the player
     this.fx.audio.scroll();                                  // parchment rustle
     this.fx.camera.focus(true);                              // cinematic push-in
     this.panel.open(tale, () => {                            // unrolls; reversed on close
       this.fx.camera.focus(false);
-      this.fx.scroll.hide();
       this.fx.gandalf.releaseGesture();
     });
   }
