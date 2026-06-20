@@ -1,5 +1,6 @@
 import "./styles/main.css";
 import * as THREE from "three";
+import { LUTCubeLoader } from "postprocessing";
 import { STOPS, CONTACT } from "./data/career";
 import { createRenderer, configureRenderer } from "./engine/renderer";
 import { createScene } from "./engine/scene";
@@ -54,7 +55,7 @@ const boot = showBoot();
 const quality = detectQuality();
 const level = resolveLevel(quality.tier);
 const flags = effectFlags(level);
-flags.lut = false; // colour-grade LUTs (.cube) removed — AgX tone mapping carries the look
+flags.grain = false; // film grain disabled (the LUT colour-grade stays — that was the good part)
 
 const renderer = createRenderer();
 renderer.setPixelRatio(quality.pixelRatio);
@@ -159,8 +160,13 @@ let postfx: PostFX | null = null;
   // Cinematic environment (HDRI/IBL + CSM + fog) and the post-processing stack.
   const environment = await createEnvironment(renderer, scene, cam.camera, flags, quality.drawDistance);
 
-  // Colour-grade LUTs removed — pass null; the lut effect is disabled via flags.lut above.
-  const lut: THREE.Texture | null = null;
+  // Load the base colour-grade LUT; skip gracefully on failure.
+  let lut: THREE.Texture | null = null;
+  try {
+    lut = await new LUTCubeLoader().loadAsync("/assets/luts/golden-hour.cube");
+  } catch (e) {
+    console.warn("[postfx] LUT load failed — skipping color grade:", e);
+  }
 
   configureRenderer(renderer, { exposure: 1.05, toneMapInRenderer: false });
   postfx = createPostFX(renderer, scene, cam.camera, flags, lut);
