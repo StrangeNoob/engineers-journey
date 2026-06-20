@@ -19,6 +19,7 @@ import { buildWater } from "./world/water";
 import { scatterNature, cullTreesNearCamera } from "./world/nature";
 import { buildGrassField } from "./world/grassField";
 import { createSnow } from "./world/weather";
+import { createWaterRipples } from "./world/waterRipples";
 import { buildAmbient } from "./world/ambient";
 import { Gandalf, pickGait } from "./player/gandalf";
 import { FollowCamera } from "./player/followCamera";
@@ -172,6 +173,7 @@ let postfx: PostFX | null = null;
   postfx = createPostFX(renderer, scene, cam.camera, flags, lut);
   const atmosphere = await createAtmosphere(scene, postfx, quality.drawDistance);
   const snow = createSnow(scene); // falling snowfall, fades in within Isengard
+  const ripples = createWaterRipples(scene); // ring ripples while wading the river
 
   const overlay = mountDebugOverlay({
     level,
@@ -204,6 +206,7 @@ let postfx: PostFX | null = null;
       cullTreesNearCamera(cam.camera.position.x, cam.camera.position.z, 5);
       grassWind?.(elapsed);
       waterRipple?.(dt);
+      ripples.update(gandalf.root.position.x, gandalf.root.position.z, gandalf.root.position.y, dt, speed);
       landmarks.update(gandalf.root.position);
       stops.update(gandalf.root.position, cam.camera, input);
       if (hudVisible) {
