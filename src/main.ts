@@ -114,6 +114,7 @@ let postfx: PostFX | null = null;
   // load, and Gandalf is pushed out of any he overlaps each frame.
   const colliders = [...landmarks.colliders];
   let grassWind: ((t: number) => void) | null = null;
+  let waterRipple: ((dt: number) => void) | null = null;
   let elapsed = 0;
 
   // Compose the walkable ground surface: flat ground (0) + the bridge arch.
@@ -180,6 +181,7 @@ let postfx: PostFX | null = null;
       cam.update(gandalf.root.position, input, dt, landmarks.obstacles);
       cullTreesNearCamera(cam.camera.position.x, cam.camera.position.z, 5);
       grassWind?.(elapsed);
+      waterRipple?.(dt);
       scroll.update(dt);
       landmarks.update(gandalf.root.position);
       stops.update(gandalf.root.position, cam.camera, input);
@@ -205,7 +207,7 @@ let postfx: PostFX | null = null;
   // take the others down or leave an unhandled rejection).
   const builders: [string, Promise<unknown>][] = [
     ["road", buildRoad(scene, colliders)],
-    ["water", buildWater(scene, colliders)],
+    ["water", buildWater(scene, colliders, quality).then((u) => { waterRipple = u; })],
     ["nature", scatterNature(scene, quality, colliders)],
     ["grass", buildGrassField(scene, quality).then((u) => { grassWind = u; })],
     ["ambient", buildAmbient(scene, colliders)],
