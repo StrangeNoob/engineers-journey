@@ -25,7 +25,8 @@ export interface Snow { update(px: number, pz: number, dt: number): void }
 
 /** A falling-snow column that follows the player and fades in within the Isengard region. */
 export function createSnow(scene: THREE.Scene): Snow {
-  const iseng = REGIONS.find((r) => r.id === "isengard")!;
+  const iseng = REGIONS.find((r) => r.id === "isengard");
+  if (!iseng) return { update() {} }; // no snowfall if the region config ever drops Isengard
   const pos = new Float32Array(COUNT * 3);
   const vel = new Float32Array(COUNT);     // per-flake fall-speed variance
   const drift = new Float32Array(COUNT * 2); // per-flake horizontal sway amplitude

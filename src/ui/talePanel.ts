@@ -74,14 +74,19 @@ export class TalePanel {
   }
 
   close(): void {
+    if (!this.isOpen) return;
     if (this.mobile) {
       this.el.style.opacity = "0"; this.el.style.transform = "translate(-50%,-46%) scale(.96)";
       this.backdrop.style.opacity = "0"; this.backdrop.style.pointerEvents = "none";
     } else {
       this.el.style.clipPath = "inset(0 0 100% 0)"; // roll back up
     }
-    this.el.setAttribute("inert", "");
-    this.onClose?.(); this.onClose = undefined;
+    // Defer `inert` + onClose until the close animation finishes: isOpen drives StopManager's
+    // movement freeze, so flipping it mid-fade would let the player walk while the panel is
+    // still visible. (A timeout, not transitionend, so it always fires even with no transition.)
+    const finalize = () => { this.el.setAttribute("inert", ""); this.onClose?.(); this.onClose = undefined; };
+    if (REDUCED) finalize();
+    else setTimeout(finalize, this.mobile ? 320 : 560); // matches the CSS transition durations
   }
 
   get isOpen(): boolean { return !this.el.hasAttribute("inert"); }
