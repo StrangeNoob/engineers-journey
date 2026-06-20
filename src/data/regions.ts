@@ -22,17 +22,17 @@ export const DEFAULT_PROFILE: RegionProfile = {
   lut: "golden-hour.cube",
   ground: null,
   fog: { color: 0xe7decb, near: 60, far: 360 },
-  exposure: 1.05,
+  exposure: 0.82, // lowered after the LUTs were removed (they had been darkening/adding contrast)
 };
 
 // Per-area moods (starting values; tunable in-browser via the debug overlay).
 // `ground` paints a soft-edged PBR floor patch at the region center (null → base grass).
 const RAW: RegionProfile[] = [
-  { id: "bree",     radius: 22, falloff: 14, lut: "bree.cube",         ground: "paving", fog: { color: 0xe0cda0, near: 50, far: 300 }, exposure: 0.95 },
-  { id: "edoras",   radius: 24, falloff: 16, lut: "edoras.cube",       ground: null,     fog: { color: 0xe8dcc0, near: 60, far: 360 }, exposure: 1.10 },
-  { id: "isengard", radius: 24, falloff: 16, lut: "isengard.cube",     ground: "snow",   fog: { color: 0xccd6dd, near: 42, far: 220 }, exposure: 1.06 },
-  { id: "minas",    radius: 28, falloff: 18, lut: "minas-tirith.cube", ground: "paving", fog: { color: 0xdfe7ec, near: 80, far: 360 }, exposure: 1.20 },
-  { id: "argonath", radius: 20, falloff: 14, lut: "minas-tirith.cube", ground: null,     fog: { color: 0xc8d0d4, near: 50, far: 300 }, exposure: 1.00 },
+  { id: "bree",     radius: 22, falloff: 14, lut: "bree.cube",         ground: "paving", fog: { color: 0xe0cda0, near: 50, far: 300 }, exposure: 0.78 },
+  { id: "edoras",   radius: 24, falloff: 16, lut: "edoras.cube",       ground: null,     fog: { color: 0xe8dcc0, near: 60, far: 360 }, exposure: 0.86 },
+  { id: "isengard", radius: 24, falloff: 16, lut: "isengard.cube",     ground: "snow",   fog: { color: 0xccd6dd, near: 42, far: 220 }, exposure: 0.94 },
+  { id: "minas",    radius: 28, falloff: 18, lut: "minas-tirith.cube", ground: "paving", fog: { color: 0xdfe7ec, near: 80, far: 360 }, exposure: 0.92 },
+  { id: "argonath", radius: 20, falloff: 14, lut: "minas-tirith.cube", ground: null,     fog: { color: 0xc8d0d4, near: 50, far: 300 }, exposure: 0.82 },
 ];
 
 const PLACE = new Map([...STOP_PLACEMENTS, ARGONATH].map((p) => [p.id, p]));
