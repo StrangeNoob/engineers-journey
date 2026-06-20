@@ -11,14 +11,15 @@ export function withinRadius(cx: number, cz: number, px: number, pz: number, r: 
   return Math.hypot(px - cx, pz - cz) <= r;
 }
 
-/** Pure: nearest stop (by collider centre) within `range`, else null. */
-export function nearestStop<T extends { id: string; x: number; z: number }>(
+/** Pure: nearest stop within reach, else null. Each stop may carry its own `range` (so big
+ *  landmarks like Minas keep a comfortable recall zone); otherwise the shared `range` applies. */
+export function nearestStop<T extends { id: string; x: number; z: number; range?: number }>(
   px: number, pz: number, stops: T[], range: number,
 ): T | null {
-  let best: T | null = null, bestD = range;
+  let best: T | null = null, bestD = Infinity;
   for (const s of stops) {
     const d = Math.hypot(px - s.x, pz - s.z);
-    if (d <= bestD) { bestD = d; best = s; }
+    if (d <= (s.range ?? range) && d < bestD) { bestD = d; best = s; }
   }
   return best;
 }
@@ -35,7 +36,7 @@ export interface RecallFx {
 export class StopManager {
   private prompt = new Prompt();
   private panel = new TalePanel();
-  private flat: { id: string; x: number; z: number }[];
+  private flat: { id: string; x: number; z: number; range: number }[];
   constructor(
     private readonly placed: PlacedStop[],
     private readonly content: Record<string, Stop>,
@@ -43,7 +44,9 @@ export class StopManager {
     private readonly onChange: (id: string) => void,
     private readonly fx: RecallFx,
   ) {
-    this.flat = placed.map((p) => ({ id: p.id, x: p.collider.x, z: p.collider.z }));
+    // per-stop recall range: comfortably beyond the footprint collider so it always covers the
+    // scroll/prompt (placed at ~footprint·0.55) — a flat range left Minas's scroll out of reach.
+    this.flat = placed.map((p) => ({ id: p.id, x: p.collider.x, z: p.collider.z, range: p.collider.r + 6 }));
   }
 
   /** true while a tale panel is open (the main loop uses this to freeze movement). */
