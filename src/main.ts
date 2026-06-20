@@ -17,6 +17,7 @@ import { buildRoad, bridgeHeight } from "./world/road";
 import { buildWater } from "./world/water";
 import { scatterNature, cullTreesNearCamera } from "./world/nature";
 import { buildGrassField } from "./world/grassField";
+import { createSnow } from "./world/weather";
 import { buildAmbient } from "./world/ambient";
 import { Gandalf, pickGait } from "./player/gandalf";
 import { FollowCamera } from "./player/followCamera";
@@ -147,6 +148,7 @@ let postfx: PostFX | null = null;
   configureRenderer(renderer, { exposure: 1.05, toneMapInRenderer: false });
   postfx = createPostFX(renderer, scene, cam.camera, flags, lut);
   const atmosphere = await createAtmosphere(scene, postfx, quality.drawDistance);
+  const snow = createSnow(scene); // falling snowfall, fades in within Isengard
 
   const overlay = mountDebugOverlay({
     level,
@@ -173,6 +175,7 @@ let postfx: PostFX | null = null;
       // one-frame camera lag that caused screen jitter while walking).
       const speed = gandalf.update(dt, moveInput, cam.yawAngle, colliders, groundHeightAt);
       atmosphere.update(gandalf.root.position.x, gandalf.root.position.z, dt);
+      snow.update(gandalf.root.position.x, gandalf.root.position.z, dt);
       environment.update(gandalf.root.position.x, gandalf.root.position.z);
       cam.update(gandalf.root.position, input, dt, landmarks.obstacles);
       cullTreesNearCamera(cam.camera.position.x, cam.camera.position.z, 5);
