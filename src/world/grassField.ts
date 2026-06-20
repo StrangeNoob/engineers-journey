@@ -84,7 +84,7 @@ export async function buildGrassField(scene: THREE.Scene, quality: Quality): Pro
   const names = ["grass-card"];
   const texes = await Promise.all(names.map((n) => loader.loadAsync(`/assets/textures/${n}.png`)));
   const time = { value: 0 };
-  const total = quality.tier === "mobile" ? 6500 : 26000;
+  const total = quality.tier === "mobile" ? 5000 : 15000; // alpha-tested billboards = heavy overdraw; trimmed for FPS
   const per = Math.floor(total / names.length);
   const d = new THREE.Object3D();
 

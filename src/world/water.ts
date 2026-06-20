@@ -153,7 +153,8 @@ export async function buildWater(
 
   if (!quality || quality.tier === "desktop") {
     const water = new Water(geo, {
-      textureWidth: 512, textureHeight: 512,
+      textureWidth: 256, textureHeight: 256, // reflection render-target; 256 is plenty for rippled water
+
       waterNormals: normals,
       sunDirection: new THREE.Vector3(-0.6, 0.7, -0.4).normalize(),
       sunColor: 0xfff0d8, waterColor: 0x274b59, distortionScale: 2.4,

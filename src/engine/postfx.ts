@@ -103,7 +103,7 @@ export function createPostFX(
   let dualLut: DualLUTEffect | null = null;
   const make = (step: EffectStep) => {
     switch (step.id) {
-      case "ssao": return new SSAOEffect(camera, normalPass!.texture, { samples: 16, radius: 0.25, intensity: 2.0, resolutionScale: 0.5 });
+      case "ssao": return new SSAOEffect(camera, normalPass!.texture, { samples: 8, radius: 0.25, intensity: 2.0, resolutionScale: 0.5 });
       case "bloom": return new BloomEffect({ luminanceThreshold: 0.75, intensity: 0.6, mipmapBlur: true });
       case "dof": return dof;
       case "tonemap": return new ToneMappingEffect({ mode: ToneMappingMode.AGX });
