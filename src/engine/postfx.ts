@@ -115,7 +115,13 @@ export function createPostFX(
         return dualLut;
       }
       case "vignette": return new VignetteEffect({ darkness: 0.32, offset: 0.45 });
-      case "grain": return new NoiseEffect({ blendFunction: BlendFunction.OVERLAY, premultiply: true });
+      case "grain": {
+        // Full-strength overlay noise read as heavy speckle (worst in flat areas like the sky);
+        // drop it to a faint filmic grain.
+        const noise = new NoiseEffect({ blendFunction: BlendFunction.OVERLAY, premultiply: true });
+        noise.blendMode.opacity.value = 0.15;
+        return noise;
+      }
       case "smaa": return new SMAAEffect();
       case "chromaticAberration": return new ChromaticAberrationEffect();
       default: return null;
