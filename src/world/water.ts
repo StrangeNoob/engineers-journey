@@ -6,7 +6,69 @@ import type { Quality } from "../engine/quality";
 
 type Collider = { x: number; z: number; r: number };
 
-const RIVER_WIDTH = 6; // metres across the stream
+const RIVER_WIDTH = 6;  // metres across the reflective stream
+const BANK_WIDTH = 13;  // metres across the pebble riverbank (wider than the water)
+
+/** Horizontal gradient (transparent edges → opaque centre, constant down its length) used as an
+ *  alphaMap so the pebble bank dissolves into the surrounding grass at its outer edges. */
+function bankAlphaMap(): THREE.Texture {
+  const w = 64, h = 4;
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const ctx = c.getContext("2d")!;
+  const g = ctx.createLinearGradient(0, 0, w, 0);
+  g.addColorStop(0, "#000"); g.addColorStop(0.26, "#fff"); g.addColorStop(0.74, "#fff"); g.addColorStop(1, "#000");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = THREE.ClampToEdgeWrapping; t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+
+/** A flat ribbon following the river spline in world XZ (normal up). UVs: u across the width
+ *  (0..1), v along the length (0..1) — per-texture repeat handles tiling vs the edge gradient. */
+function bankRibbon(width: number): THREE.BufferGeometry {
+  const curve = new THREE.CatmullRomCurve3(RIVER_POINTS.map(([x, z]) => new THREE.Vector3(x, 0, z)));
+  const N = 140, half = width / 2;
+  const pos: number[] = [], uv: number[] = [], idx: number[] = [];
+  for (let i = 0; i <= N; i++) {
+    const u = i / N;
+    const p = curve.getPointAt(u), tan = curve.getTangentAt(u);
+    let px = -tan.z, pz = tan.x; const pl = Math.hypot(px, pz) || 1; px /= pl; pz /= pl;
+    pos.push(p.x - px * half, 0, p.z - pz * half); // left edge
+    pos.push(p.x + px * half, 0, p.z + pz * half); // right edge
+    uv.push(0, u); uv.push(1, u);
+    if (i < N) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+/** A pebble riverbank ribbon (real PBR pebbles) under + beside the water, edges faded into grass. */
+function buildRiverbank(scene: THREE.Scene): void {
+  const loader = new THREE.TextureLoader();
+  const total = new THREE.CatmullRomCurve3(RIVER_POINTS.map(([x, z]) => new THREE.Vector3(x, 0, z))).getLength();
+  const tilesU = Math.max(1, Math.round(BANK_WIDTH / 2.2));   // ~2.2 m pebble tiles across the bank
+  const tilesV = Math.max(1, Math.round(total / 2.2));        // …and along its length
+  const map = (name: string, srgb = false): THREE.Texture => {
+    const t = loader.load(`/assets/textures/pbr/riverbank_${name}.jpg`);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; t.repeat.set(tilesU, tilesV);
+    if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  };
+  const mat = new THREE.MeshStandardMaterial({
+    map: map("albedo", true), normalMap: map("normal"), roughnessMap: map("roughness"),
+    alphaMap: bankAlphaMap(), transparent: true, side: THREE.DoubleSide, roughness: 1, metalness: 0,
+    depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2,
+  });
+  const bank = new THREE.Mesh(bankRibbon(BANK_WIDTH), mat);
+  bank.position.y = 0.03;     // just above the terrain, under the water (0.06)
+  bank.renderOrder = 1;
+  bank.receiveShadow = true;
+  scene.add(bank);
+}
 
 // fountain/well are sized by real-world HEIGHT (metres) for human scale
 async function placeOnce(scene: THREE.Scene, name: string, x: number, z: number, height: number, ry = 0, colliders?: Collider[]): Promise<void> {
@@ -84,6 +146,7 @@ function riverRibbon(width: number): THREE.BufferGeometry {
 export async function buildWater(
   scene: THREE.Scene, colliders: Collider[] = [], quality?: Quality,
 ): Promise<(dt: number) => void> {
+  buildRiverbank(scene); // pebble bank under + beside the water
   const normals = waterNormals();
   const geo = riverRibbon(RIVER_WIDTH);
   let update: (dt: number) => void;
@@ -98,7 +161,7 @@ export async function buildWater(
     });
     water.rotation.x = -Math.PI / 2;
     water.position.y = 0.06;
-    water.renderOrder = 1;
+    water.renderOrder = 2; // above the pebble bank (renderOrder 1)
     scene.add(water);
     const u = (water.material as THREE.ShaderMaterial).uniforms;
     update = (dt) => { u.time.value += dt * 0.5; };
@@ -112,6 +175,7 @@ export async function buildWater(
     const mesh = new THREE.Mesh(geo, mat);
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.y = 0.06;
+    mesh.renderOrder = 2; // above the pebble bank
     scene.add(mesh);
     update = (dt) => { normals.offset.y += dt * 0.04; };
   }
