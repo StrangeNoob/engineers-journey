@@ -89,6 +89,12 @@ export function showBoot(): HTMLElement {
     lab.textContent = v.label;
   };
   const step = (delay: number, fn: () => void) => { b._timer = window.setTimeout(() => { if (!b._dead) fn(); }, delay); };
+  // split into grapheme clusters so combining marks (Devanagari/Arabic vowel signs, Tengwar
+  // tehtar) stay attached to their base while typing instead of flashing in/out on their own.
+  const segmenter = typeof Intl !== "undefined" && "Segmenter" in Intl
+    ? new Intl.Segmenter(undefined, { granularity: "grapheme" }) : undefined;
+  const graphemes = (text: string): string[] =>
+    segmenter ? [...segmenter.segment(text)].map((s) => s.segment) : [...text];
 
   function typeIn(v: Variant, chars: string[], i: number): void {
     render(v, chars.slice(0, i).join(""));
@@ -98,9 +104,9 @@ export function showBoot(): HTMLElement {
   function eraseOut(v: Variant, chars: string[], i: number): void {
     render(v, chars.slice(0, i).join(""));
     if (i > 0) step(22, () => eraseOut(v, chars, i - 1));
-    else { vi = (vi + 1) % VARIANTS.length; const nv = VARIANTS[vi]; step(260, () => typeIn(nv, [...nv.text], 0)); }
+    else { vi = (vi + 1) % VARIANTS.length; const nv = VARIANTS[vi]; step(260, () => typeIn(nv, graphemes(nv.text), 0)); }
   }
-  typeIn(VARIANTS[0], [...VARIANTS[0].text], 0);
+  typeIn(VARIANTS[0], graphemes(VARIANTS[0].text), 0);
 
   return b;
 }
