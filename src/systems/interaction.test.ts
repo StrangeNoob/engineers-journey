@@ -15,4 +15,9 @@ describe("nearestStop", () => {
   it("returns null when none in range", () => {
     expect(nearestStop(50, 50, stops, 4)).toBeNull();
   });
+  it("honours a per-stop range over the shared one (big landmarks like Minas)", () => {
+    const big = [{ id: "minas", x: 0, z: 0, range: 19 }];
+    expect(nearestStop(16, 0, big, 14)?.id).toBe("minas"); // outside shared 14, inside its own 19
+    expect(nearestStop(20, 0, big, 14)).toBeNull();         // beyond its own range
+  });
 });

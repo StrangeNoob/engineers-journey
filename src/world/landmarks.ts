@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { loadGLTF, toonify, fitToHeight } from "./assets";
+import { loadGLTF, fitToHeight } from "./assets";
+import { applyPBR, type PBRConfig } from "./materials";
 import { STOP_PLACEMENTS, ARGONATH, type Placement } from "../data/world";
 
 export interface PlacedStop {
@@ -14,6 +15,23 @@ export function withinLoadRange(x: number, z: number, px: number, pz: number, ra
 }
 
 const LOAD_RANGE = 95;
+
+const DEFAULT_MAT: PBRConfig = { roughness: 0.9, metalness: 0.0 };
+const MATERIAL_BY_ID: Record<string, PBRConfig> = {
+  shire:    { roughness: 0.9 },
+  bywater:  { roughness: 0.9 },
+  bree:     { roughness: 0.85 },
+  edoras:   { roughness: 0.8 },
+  isengard: { roughness: 0.7, metalness: 0.1 },
+  minas:    { roughness: 0.6 },
+  argonath: { roughness: 0.85 },
+};
+
+/** Pure: the PBR material config for a landmark id (default for unknowns). Returns a fresh
+ *  object each call so callers can't mutate the shared MATERIAL_BY_ID / DEFAULT_MAT entries. */
+export function materialFor(id: string): PBRConfig {
+  return { ...DEFAULT_MAT, ...(MATERIAL_BY_ID[id] ?? {}) };
+}
 
 function scrollPosFor(p: Placement): THREE.Vector3 {
   const toCentreX = -p.x, toCentreZ = -p.z;
@@ -47,7 +65,7 @@ export function placeLandmarks(scene: THREE.Scene): LandmarkRegistry {
     loadGLTF(p.id === "argonath" ? "argonath" : modelFor(p.id))
       .then((g) => {
         const root = g.scene as THREE.Group;
-        toonify(root);
+        applyPBR(root, materialFor(p.id));
         fitToHeight(root, p.height); // scale by real-world height (human-relative)
         root.position.x = p.x; root.position.z = p.z;
         root.position.y -= p.sink;

@@ -14,6 +14,7 @@ export class FollowCamera {
   private readonly ray = new THREE.Raycaster();
 
   private focused = false;
+
   /** When on, the camera eases closer to frame the tale scroll; off restores normal follow. */
   focus(on: boolean): void { this.focused = on; }
 

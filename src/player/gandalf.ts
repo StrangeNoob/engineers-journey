@@ -1,8 +1,31 @@
 import * as THREE from "three";
-import { loadGLTF, toonify } from "../world/assets";
+import { loadGLTF } from "../world/assets";
+import { usePBRMaterials } from "../world/materials";
 import type { InputState } from "../engine/input";
+import { integrateVelocity, approachAngle, integrateJump, type JumpState } from "./locomotion";
+
+const GROUND_ACCEL = 30, GROUND_DECEL = 40, TURN_RATE = 12;
+const JUMP_V = 5.5, GRAVITY = 18, AIRBORNE_CLEAR_H = 0.4;
 
 export type Gait = "idle" | "walk" | "run";
+
+export type Role = "idle" | "walk" | "run" | "wave" | "listening" | "jump";
+
+/** Pure: resolve each role to its same-named clip, else fall back to `idle`. Missing idle throws.
+ *  The return type covers exactly the roles passed in, so reading an unrequested role is a type error. */
+export function resolveClips<R extends Role>(
+  roles: readonly R[],
+  clipsByName: Map<string, THREE.AnimationClip>,
+): Record<R, THREE.AnimationClip> {
+  const idle = clipsByName.get("idle");
+  if (!idle) throw new Error("Gandalf model has no 'idle' animation clip");
+  const out = {} as Record<R, THREE.AnimationClip>;
+  // A missing non-idle role falls back to idle's motion, but as its OWN clone so the mixer
+  // gives it a distinct AnimationAction — otherwise two roles sharing the idle clip would
+  // alias to the same action and cross-talk when blended.
+  for (const r of roles) out[r] = clipsByName.get(r) ?? (r === "idle" ? idle : idle.clone());
+  return out;
+}
 
 /** Pure: world-space horizontal move direction (normalized) from axes + camera yaw. */
 export function cameraRelativeMove(forward: number, right: number, camYaw: number) {
@@ -28,7 +51,7 @@ export function gaitWeights(gait: Gait): { idle: number; walk: number; run: numb
 }
 
 /** A solid circular footprint on the ground plane. */
-export interface Collider { x: number; z: number; r: number; }
+export interface Collider { x: number; z: number; r: number; low?: boolean; }
 
 /**
  * Pure: push (x,z) out of any overlapping collider so a body of `radius`
@@ -36,9 +59,10 @@ export interface Collider { x: number; z: number; r: number; }
  * (resolving one circle pushes into another) still settles. Returns the
  * corrected position.
  */
-export function resolveCollisions(x: number, z: number, colliders: Collider[], radius: number): { x: number; z: number } {
+export function resolveCollisions(x: number, z: number, colliders: Collider[], radius: number, skipLow = false): { x: number; z: number } {
   for (let pass = 0; pass < 2; pass++) {
     for (const c of colliders) {
+      if (skipLow && c.low) continue;
       const dx = x - c.x, dz = z - c.z;
       const min = c.r + radius;
       const d2 = dx * dx + dz * dz;
@@ -50,6 +74,10 @@ export function resolveCollisions(x: number, z: number, colliders: Collider[], r
   }
   return { x, z };
 }
+
+// Y-rotation (radians) applied to the model so its authored forward matches the movement
+// convention (root.rotation.y = atan2(dir.x, dir.z)). Calibrated in-browser; 0 if already aligned.
+const MODEL_FACING_OFFSET = 0;
 
 const WALK_SPEED = 4.2;
 const RUN_SPEED = 8.8;
@@ -67,43 +95,49 @@ export class Gandalf {
   private active: THREE.AnimationAction | null = null; // current gesture, if any
   private gestureTarget = 0;                            // 0 = fade out, 1 = fade in
   private hold = false;                                 // keep the gesture's end pose until released
+  private jumpAction!: THREE.AnimationAction;
+  private jumpActionWeight = 0;   // 0 = locomotion, 1 = jump clip
+  private jumpActionTarget = 0;   // driven by airborne state
+  private vel = { x: 0, z: 0 };
+  private jump: JumpState = { y: 0, vy: 0, grounded: true };
+
+  private async loadModel(): Promise<{ mesh: THREE.Object3D; clips: Map<string, THREE.AnimationClip> }> {
+    const g = await loadGLTF("gandalf");
+    if (g.animations.length === 0) throw new Error("gandalf.glb has no animation clips");
+    const clips = new Map(g.animations.map((c) => [c.name.toLowerCase(), c]));
+    return { mesh: g.scene, clips };
+  }
 
   async load(): Promise<void> {
-    const [walk, run, idle, listening, wave] = await Promise.all([
-      loadGLTF("gandalf-walk"), loadGLTF("gandalf-run"), loadGLTF("gandalf-idle"),
-      loadGLTF("gandalf-listening"), loadGLTF("gandalf-one-hand-wave"),
-    ]);
-    const mesh = walk.scene;
-    toonify(mesh);
+    const { mesh, clips } = await this.loadModel();
+    usePBRMaterials(mesh, { roughness: 0.85, metalness: 0.0 });
     this.root.add(mesh);
 
-    const clip = (g: typeof walk, label: string): THREE.AnimationClip => {
-      const c = g.animations[0];
-      if (!c) throw new Error(`Gandalf ${label} clip missing`);
-      return c;
-    };
+    const resolved = resolveClips(["idle", "walk", "run", "wave", "listening", "jump"], clips);
     this.mixer = new THREE.AnimationMixer(mesh);
-    // every clip shares the rig's bone names, so they all retarget onto this mesh's mixer.
     this.loco = {
-      idle: this.mixer.clipAction(clip(idle, "idle")),
-      walk: this.mixer.clipAction(clip(walk, "walk")),
-      run: this.mixer.clipAction(clip(run, "run")),
+      idle: this.mixer.clipAction(resolved.idle),
+      walk: this.mixer.clipAction(resolved.walk),
+      run: this.mixer.clipAction(resolved.run),
     };
     this.gestures = {
-      wave: this.mixer.clipAction(clip(wave, "wave")),
-      listening: this.mixer.clipAction(clip(listening, "listening")),
+      wave: this.mixer.clipAction(resolved.wave),
+      listening: this.mixer.clipAction(resolved.listening),
     };
+    this.jumpAction = this.mixer.clipAction(resolved.jump);
     (["idle", "walk", "run"] as Gait[]).forEach((k) => { this.loco[k].play(); this.loco[k].weight = k === "idle" ? 1 : 0; });
-    this.loco.walk.timeScale = WALK_SPEED / WALK_CLIP_SPEED;   // keep strides in step with the faster pace
+    this.loco.walk.timeScale = WALK_SPEED / WALK_CLIP_SPEED; // keep strides in step with the faster pace
     this.loco.run.timeScale = RUN_SPEED / RUN_CLIP_SPEED;
     Object.values(this.gestures).forEach((a) => { a.weight = 0; });
+    this.jumpAction.setLoop(THREE.LoopOnce, 1);
+    this.jumpAction.clampWhenFinished = true;
+    this.jumpAction.weight = 0;
     // a finished gesture that isn't being held fades back to locomotion
     this.mixer.addEventListener("finished", (e) => {
       if (e.action === this.active && !this.hold) this.gestureTarget = 0;
     });
 
-    // Size + ground from the ANIMATED idle pose (pose-aware; Box3.setFromObject under-measures
-    // this rig). Apply the idle frame, measure real skinned bounds, scale to 1.9 m, drop soles to 0.
+    // Size + ground from the ANIMATED idle pose (pose-aware), then apply the facing offset.
     this.mixer.update(0);
     const poseBox = () => {
       this.root.updateMatrixWorld(true);
@@ -121,6 +155,7 @@ export class Gandalf {
     mesh.scale.setScalar(k);
     const grounded = poseBox();
     if (!grounded.isEmpty()) mesh.position.y -= grounded.min.y;
+    mesh.rotation.y += MODEL_FACING_OFFSET;
   }
 
   /** Play a one-shot gesture. hold=true keeps the end pose until releaseGesture(). */
@@ -136,19 +171,63 @@ export class Gandalf {
   releaseGesture(): void { this.gestureTarget = 0; this.hold = false; }
 
   /** Move + animate. Returns horizontal speed. */
-  update(dt: number, input: InputState, camYaw: number, colliders: Collider[] = []): number {
+  update(
+    dt: number,
+    input: InputState,
+    camYaw: number,
+    colliders: Collider[] = [],
+    groundHeightAt: (x: number, z: number) => number = () => 0,
+  ): number {
+    // --- horizontal movement (accelerated) ---
     const dir = cameraRelativeMove(input.move.forward, input.move.right, camYaw);
     const moving = dir.x !== 0 || dir.z !== 0;
-    const speed = moving ? (input.run ? RUN_SPEED : WALK_SPEED) : 0;
-    this.root.position.x += dir.x * speed * dt;
-    this.root.position.z += dir.z * speed * dt;
+    const targetSpeed = moving ? (input.run ? RUN_SPEED : WALK_SPEED) : 0;
+    const target = { x: dir.x * targetSpeed, z: dir.z * targetSpeed };
+    const rate = moving ? GROUND_ACCEL : GROUND_DECEL;
+    this.vel = integrateVelocity(this.vel, target, rate, dt);
+    this.root.position.x += this.vel.x * dt;
+    this.root.position.z += this.vel.z * dt;
+
+    // --- vertical: jump/gravity ---
+    const groundY = groundHeightAt(this.root.position.x, this.root.position.z);
+    const wasGrounded = this.jump.grounded;
+    this.jump = integrateJump(this.jump, groundY, input.jump, dt, JUMP_V, GRAVITY);
+    // Walking down a slope (bridge/knoll) can momentarily read as airborne when groundY drops
+    // faster than the feet — harmless today (no `low` colliders sit on a slope), but if one is
+    // ever placed there, it could be skipped for a frame. Keep low props off slopes.
+    const airborne = (this.jump.y - groundY) > AIRBORNE_CLEAR_H;
+
+    // --- collision (skip low obstacles while airborne) ---
     if (colliders.length) {
-      const p = resolveCollisions(this.root.position.x, this.root.position.z, colliders, BODY_RADIUS);
+      const p = resolveCollisions(this.root.position.x, this.root.position.z, colliders, BODY_RADIUS, airborne);
       this.root.position.x = p.x; this.root.position.z = p.z;
     }
-    if (moving) this.root.rotation.y = Math.atan2(dir.x, dir.z);
+    this.root.position.y = this.jump.y;
 
-    if (this.active && speed > 0.1) { this.gestureTarget = 0; this.hold = false; } // movement wins
+    // --- smooth turn ---
+    const speed = Math.hypot(this.vel.x, this.vel.z);
+    if (speed > 0.1) this.root.rotation.y = approachAngle(this.root.rotation.y, Math.atan2(this.vel.x, this.vel.z), TURN_RATE * dt);
+
+    // --- jump action: play on takeoff, fade back on landing ---
+    const tookOff = wasGrounded && !this.jump.grounded;
+    const landed = !wasGrounded && this.jump.grounded;
+    if (tookOff) {
+      this.jumpAction.reset();
+      this.jumpAction.play();
+      this.jumpActionTarget = 1;
+    }
+    if (landed) {
+      this.jumpActionTarget = 0;
+    }
+    this.jumpActionWeight += (this.jumpActionTarget - this.jumpActionWeight) * Math.min(1, dt * 8);
+    if (this.jumpActionTarget === 0 && this.jumpActionWeight < 0.02) {
+      this.jumpActionWeight = 0;
+      this.jumpAction.stop();
+    }
+    this.jumpAction.weight = this.jumpActionWeight;
+
+    // --- gesture blend (movement wins) ---
+    if (this.active && speed > 0.1) { this.gestureTarget = 0; this.hold = false; }
 
     let gWeight = 0;
     if (this.active) {
@@ -157,11 +236,14 @@ export class Gandalf {
       if (this.gestureTarget === 0 && gWeight < 0.02) { this.active.weight = 0; this.active.stop(); this.active = null; gWeight = 0; }
     }
 
+    // --- locomotion gait blend ---
+    // jump action + gesture share the "over locomotion" budget
+    const locoScale = 1 - Math.max(this.jumpActionWeight, gWeight);
     const t = gaitWeights(pickGait(speed, input.run));
-    const lerp = (a: THREE.AnimationAction, target: number) => { a.weight += (target - a.weight) * Math.min(1, dt * 10); };
-    lerp(this.loco.idle, t.idle * (1 - gWeight));
-    lerp(this.loco.walk, t.walk * (1 - gWeight));
-    lerp(this.loco.run, t.run * (1 - gWeight));
+    const lerp = (a: THREE.AnimationAction, tgt: number) => { a.weight += (tgt - a.weight) * Math.min(1, dt * 10); };
+    lerp(this.loco.idle, t.idle * locoScale);
+    lerp(this.loco.walk, t.walk * locoScale);
+    lerp(this.loco.run, t.run * locoScale);
 
     this.mixer.update(dt);
     return speed;

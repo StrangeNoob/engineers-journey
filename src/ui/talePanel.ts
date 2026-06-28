@@ -1,22 +1,59 @@
 import type { Stop } from "../data/career";
 
 const REDUCED = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+const isMobile = (): boolean => typeof matchMedia !== "undefined" && matchMedia("(max-width: 640px)").matches;
+
+const COMMON =
+  "z-index:8;background:linear-gradient(180deg,#f4ecd8,#ece2c9);overflow-y:auto;" +
+  "font-family:'Iowan Old Style',Georgia,serif;color:#2e2a22;";
+// desktop: a side panel that unrolls top→bottom
+const PANEL =
+  "position:fixed;top:0;right:0;height:100%;width:min(420px,92vw);box-shadow:-12px 0 40px rgba(46,42,34,.22);" +
+  "clip-path:inset(0 0 100% 0);padding:60px 32px 32px;" +
+  (REDUCED ? "" : "transition:clip-path .55s cubic-bezier(.6,.05,.2,1);");
+// mobile: a centered modal card that fades/scales in
+const MODAL =
+  "position:fixed;left:50%;top:50%;transform:translate(-50%,-46%) scale(.96);width:92vw;max-width:440px;max-height:86vh;" +
+  "border-radius:18px;box-shadow:0 18px 60px rgba(46,42,34,.4);padding:54px 26px 28px;opacity:0;" +
+  (REDUCED ? "" : "transition:opacity .3s ease, transform .3s cubic-bezier(.6,.05,.2,1);");
 
 export class TalePanel {
   private el = document.createElement("aside");
+  private backdrop = document.createElement("div");
   private onClose?: () => void;
+  private mobile = false;
+  private closeTimer?: number; // pending deferred finalize() from close(), so a quick reopen can cancel it
+  private rafId?: number;      // pending mobile open animation frame, cancelled on reopen/close
+
   constructor() {
     this.el.id = "tale";
+    this.el.setAttribute("role", "dialog");
     this.el.setAttribute("inert", "");
-    this.el.style.cssText =
-      "position:fixed;top:0;right:0;height:100%;width:min(420px,92vw);z-index:8;background:linear-gradient(180deg,#f4ecd8,#ece2c9);box-shadow:-12px 0 40px rgba(46,42,34,.22);clip-path:inset(0 0 100% 0);" +
-      (REDUCED ? "" : "transition:clip-path .55s cubic-bezier(.6,.05,.2,1);") +
-      "padding:60px 32px 32px;overflow-y:auto;font-family:'Iowan Old Style',Georgia,serif;color:#2e2a22";
-    document.body.appendChild(this.el);
+    this.backdrop.style.cssText =
+      "position:fixed;inset:0;z-index:7;background:rgba(20,16,10,.45);opacity:0;pointer-events:none;" +
+      (REDUCED ? "" : "transition:opacity .3s ease");
+    this.backdrop.addEventListener("click", () => this.close()); // tap-outside dismiss (mobile modal)
+    document.body.append(this.backdrop, this.el);
     addEventListener("keydown", (e) => { if (e.key === "Escape") this.close(); });
+    // focus trap: keep Tab cycling within the open dialog so it can't escape to the background
+    this.el.addEventListener("keydown", (e) => {
+      if (e.key !== "Tab" || !this.isOpen) return;
+      const f = this.el.querySelectorAll<HTMLElement>('button,[href],[tabindex]:not([tabindex="-1"])');
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
   }
+
   open(stop: Stop, onClose: () => void): void {
+    if (this.closeTimer !== undefined) { clearTimeout(this.closeTimer); this.closeTimer = undefined; } // cancel a pending close→finalize so it can't inert this fresh open
+    if (this.rafId !== undefined) { cancelAnimationFrame(this.rafId); this.rafId = undefined; } // and any stale open frame
     this.onClose = onClose;
+    this.mobile = isMobile();
+    this.el.setAttribute("aria-label", stop.locale);
+    if (this.mobile) this.el.setAttribute("aria-modal", "true"); else this.el.removeAttribute("aria-modal");
+    this.el.style.cssText = COMMON + (this.mobile ? MODAL : PANEL); // reset to the closed base each open
     this.el.replaceChildren();
     const add = (tag: string, text: string, css: string) => {
       const n = document.createElement(tag); n.textContent = text; n.style.cssText = css; this.el.appendChild(n); return n;
@@ -43,13 +80,32 @@ export class TalePanel {
     }
     this.el.appendChild(chips);
     this.el.removeAttribute("inert");
-    this.el.style.clipPath = "inset(0 0 0 0)"; // unroll top -> bottom
+    if (this.mobile) {
+      this.backdrop.style.pointerEvents = "auto"; this.backdrop.style.opacity = "1";
+      this.rafId = requestAnimationFrame(() => { this.rafId = undefined; this.el.style.opacity = "1"; this.el.style.transform = "translate(-50%,-50%) scale(1)"; });
+    } else {
+      this.el.style.clipPath = "inset(0 0 0 0)"; // unroll top -> bottom
+    }
     (close as HTMLButtonElement).focus();
   }
+
   close(): void {
-    this.el.style.clipPath = "inset(0 0 100% 0)"; // roll back up
-    this.el.setAttribute("inert", "");
-    this.onClose?.(); this.onClose = undefined;
+    if (!this.isOpen) return;
+    if (this.rafId !== undefined) { cancelAnimationFrame(this.rafId); this.rafId = undefined; } // drop a not-yet-fired open frame
+    if (this.mobile) {
+      this.el.style.opacity = "0"; this.el.style.transform = "translate(-50%,-46%) scale(.96)";
+      this.backdrop.style.opacity = "0"; this.backdrop.style.pointerEvents = "none";
+    } else {
+      this.el.style.clipPath = "inset(0 0 100% 0)"; // roll back up
+    }
+    // Defer `inert` + onClose until the close animation finishes: isOpen drives StopManager's
+    // movement freeze, so flipping it mid-fade would let the player walk while the panel is
+    // still visible. (A timeout, not transitionend, so it always fires even with no transition.)
+    const finalize = () => { this.closeTimer = undefined; this.el.setAttribute("inert", ""); this.onClose?.(); this.onClose = undefined; };
+    if (this.closeTimer !== undefined) clearTimeout(this.closeTimer); // coalesce repeated closes mid-animation
+    if (REDUCED) finalize();
+    else this.closeTimer = window.setTimeout(finalize, this.mobile ? 320 : 560); // matches the CSS transition durations
   }
+
   get isOpen(): boolean { return !this.el.hasAttribute("inert"); }
 }
