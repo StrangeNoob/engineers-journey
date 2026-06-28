@@ -46,7 +46,7 @@ export class StopManager {
   ) {
     // per-stop recall range: comfortably beyond the footprint collider so it always covers the
     // scroll/prompt (placed at ~footprint·0.55) — a flat range left Minas's scroll out of reach.
-    this.flat = placed.map((p) => ({ id: p.id, x: p.collider.x, z: p.collider.z, range: p.collider.r + 6 }));
+    this.flat = placed.map((p) => ({ id: p.id, x: p.collider.x, z: p.collider.z, range: Math.max(this.rangeFor(), p.collider.r + 6) }));
   }
 
   /** true while a tale panel is open (the main loop uses this to freeze movement). */

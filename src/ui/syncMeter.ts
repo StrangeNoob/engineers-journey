@@ -24,6 +24,8 @@ export class SyncMeter {
       this.segs.push(s);
     }
     this.label.style.cssText = "letter-spacing:.06em;text-shadow:0 1px 0 rgba(255,255,255,.4)";
+    this.label.textContent = `Synchronization 0 / ${orderedIds.length}`; // accessible name before the first set()
+    this.el.setAttribute("aria-label", `Synchronization 0 of ${orderedIds.length}`);
     this.el.append(bar, this.label);
     document.body.appendChild(this.el);
   }

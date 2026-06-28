@@ -61,8 +61,10 @@ export function applyPBR(root: THREE.Object3D, cfg: PBRConfig): THREE.Object3D {
     m.material = new THREE.MeshStandardMaterial({
       ...buildStandardMaterialParams({ ...cfg, color: cfg.color ?? prev.color?.getHex() }),
       map: albedo ?? null,
+      vertexColors: prev.vertexColors, // keep vertex tinting through the swap
     });
     (m.material as THREE.Material).needsUpdate = true;
+    prev.dispose(); // release the replaced material's GPU resources (textures are reused, not disposed)
   });
   return root;
 }
@@ -98,8 +100,10 @@ export function usePBRMaterials(root: THREE.Object3D, cfg: PBRConfig): THREE.Obj
       m.material = new THREE.MeshStandardMaterial({
         ...buildStandardMaterialParams({ ...cfg, color: cfg.color ?? prev.color?.getHex() }),
         map: albedo ?? null,
+        vertexColors: prev.vertexColors, // keep vertex tinting through the swap
       });
       (m.material as THREE.Material).needsUpdate = true;
+      prev.dispose(); // release the replaced material's GPU resources (textures are reused, not disposed)
     }
   });
   return root;

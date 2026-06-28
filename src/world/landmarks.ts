@@ -27,9 +27,10 @@ const MATERIAL_BY_ID: Record<string, PBRConfig> = {
   argonath: { roughness: 0.85 },
 };
 
-/** Pure: the PBR material config for a landmark id (default for unknowns). */
+/** Pure: the PBR material config for a landmark id (default for unknowns). Returns a fresh
+ *  object each call so callers can't mutate the shared MATERIAL_BY_ID / DEFAULT_MAT entries. */
 export function materialFor(id: string): PBRConfig {
-  return MATERIAL_BY_ID[id] ?? DEFAULT_MAT;
+  return { ...DEFAULT_MAT, ...(MATERIAL_BY_ID[id] ?? {}) };
 }
 
 function scrollPosFor(p: Placement): THREE.Vector3 {

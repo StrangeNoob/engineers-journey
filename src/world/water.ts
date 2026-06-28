@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { Water } from "three/examples/jsm/objects/Water.js";
 import { loadGLTF, toonify, fitToHeight } from "./assets";
 import { RIVER_POINTS } from "../data/world";
+import { sunDirection } from "../engine/environment";
 import type { Quality } from "../engine/quality";
 
 type Collider = { x: number; z: number; r: number };
@@ -156,7 +157,7 @@ export async function buildWater(
       textureWidth: 256, textureHeight: 256, // reflection render-target; 256 is plenty for rippled water
 
       waterNormals: normals,
-      sunDirection: new THREE.Vector3(-0.6, 0.7, -0.4).normalize(),
+      sunDirection: sunDirection().negate(), // toward the sun — keep the glint aligned with the scene light
       sunColor: 0xfff0d8, waterColor: 0x274b59, distortionScale: 2.4,
       alpha: 0.92, fog: scene.fog !== null,
     });

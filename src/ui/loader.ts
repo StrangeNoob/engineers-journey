@@ -26,7 +26,10 @@ const VARIANTS: Variant[] = [
   { label: "Tengwar / Sindarin", text: TENGWAR, teng: true, roman: "Lend na Ennor — Journey to Middle-earth" },
 ];
 
-interface BootEl extends HTMLElement { _timer?: number; _dead?: boolean; _bar?: HTMLElement }
+interface BootEl extends HTMLElement {
+  _timer?: number; _dead?: boolean; _bar?: HTMLElement;
+  _prevProgress?: (url: string, loaded: number, total: number) => void; // listener to restore on hide
+}
 
 /** A themed loading screen: a typewriter that retypes the title across world scripts, Cirth
  *  runes and Tengwar (Elvish), over a real progress bar driven by Three's loading manager. */
@@ -73,7 +76,10 @@ export function showBoot(): HTMLElement {
 
   // real progress (every texture/GLB load); total grows as loads queue, so keep it monotonic
   let pct = 6;
-  THREE.DefaultLoadingManager.onProgress = (_u, loaded, total) => {
+  const prevProgress = THREE.DefaultLoadingManager.onProgress;
+  b._prevProgress = prevProgress;
+  THREE.DefaultLoadingManager.onProgress = (url, loaded, total) => {
+    prevProgress?.(url, loaded, total); // chain to any pre-existing listener instead of clobbering it
     if (!total) return;
     pct = Math.max(pct, 6 + (loaded / total) * 92);
     bar.style.width = `${Math.min(98, pct)}%`;
@@ -116,6 +122,6 @@ export function hideBoot(b: HTMLElement): void {
   boot._dead = true;
   if (boot._timer) clearTimeout(boot._timer);
   if (boot._bar) boot._bar.style.width = "100%";
-  THREE.DefaultLoadingManager.onProgress = () => {};
+  THREE.DefaultLoadingManager.onProgress = boot._prevProgress ?? (() => {}); // restore, don't leave a noop
   setTimeout(() => { b.style.opacity = "0"; setTimeout(() => b.remove(), 600); }, 240);
 }

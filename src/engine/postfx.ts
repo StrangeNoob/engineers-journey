@@ -44,7 +44,7 @@ class DualLUTEffect extends Effect {
     const size = (t as unknown as THREE.Data3DTexture).image?.width ?? 33;
     (this.uniforms.get("lutDomainB") as THREE.Uniform<THREE.Vector2>).value = lutDomain(size);
   }
-  set mix(v: number) { (this.uniforms.get("lutMix") as THREE.Uniform<number>).value = v; }
+  set mix(v: number) { (this.uniforms.get("lutMix") as THREE.Uniform<number>).value = Math.max(0, Math.min(1, v)); }
 }
 
 export type EffectId =
@@ -99,7 +99,8 @@ export function createPostFX(
 
   // focusRange controls the depth-of-field blur range (world units).
   // When a tale panel is open (active=true) we widen the range to deepen DoF.
-  const dof = new DepthOfFieldEffect(camera, { focusDistance: 3.0, focusRange: 2.0, bokehScale: 2.0 });
+  // only built when DoF is enabled — otherwise low/clarity tiers paid to construct an unused pass
+  const dof = flags.dof ? new DepthOfFieldEffect(camera, { focusDistance: 3.0, focusRange: 2.0, bokehScale: 2.0 }) : null;
   let dualLut: DualLUTEffect | null = null;
   const make = (step: EffectStep) => {
     switch (step.id) {
@@ -150,7 +151,7 @@ export function createPostFX(
     // Use cocMaterial.focusRange (the typed property accessor) to control
     // depth-of-field intensity. Widening focusRange deepens the blur when
     // a tale panel is open.
-    setFocus: (active) => { if (flags.dof) dof.cocMaterial.focusRange = active ? 8.0 : 2.0; },
+    setFocus: (active) => { if (dof) dof.cocMaterial.focusRange = active ? 8.0 : 2.0; },
     setRegionLUT: (tex) => { if (dualLut) dualLut.regionLUT = tex; },
     setLutMix: (v) => { if (dualLut) dualLut.mix = v; },
     setExposure: (v) => { renderer.toneMappingExposure = v; },

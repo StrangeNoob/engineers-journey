@@ -87,6 +87,7 @@ export async function createEnvironment(
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     Object.assign(sun.shadow.camera, { left: -55, right: 55, top: 55, bottom: -55, near: 1, far: 200 });
+    sun.shadow.camera.updateProjectionMatrix(); // apply the new frustum bounds
     sun.shadow.bias = -0.0004;
     scene.add(sun, sun.target);
   }

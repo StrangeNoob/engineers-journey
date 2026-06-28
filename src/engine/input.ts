@@ -33,7 +33,7 @@ export class Input {
       this.keys.add(e.code);
       if (e.code === "ShiftLeft" || e.code === "ShiftRight") this.state.run = true;
       if (e.code === "KeyE" && !e.repeat) this.pendingInteract = true; // ignore auto-repeat
-      if (e.code === "Space" && !e.repeat) this.pendingJump = true;
+      if (e.code === "Space") { e.preventDefault(); if (!e.repeat) this.pendingJump = true; } // suppress page scroll
     });
     addEventListener("keyup", (e) => {
       this.keys.delete(e.code);

@@ -51,9 +51,9 @@ export async function createAtmosphere(
   const lutFor = new Map<string, THREE.Texture | null>();
   for (const r of REGIONS) lutFor.set(r.id, (await load(r.lut)) ?? defaultLut);
 
-  scene.fog = new THREE.Fog(DEFAULT_PROFILE.fog.color, DEFAULT_PROFILE.fog.near, Math.min(DEFAULT_PROFILE.fog.far, drawDistance));
-  const fog = scene.fog as THREE.Fog;
   const baseFar = Math.min(DEFAULT_PROFILE.fog.far, drawDistance);
+  scene.fog = new THREE.Fog(DEFAULT_PROFILE.fog.color, Math.min(DEFAULT_PROFILE.fog.near, baseFar - 1), baseFar);
+  const fog = scene.fog as THREE.Fog;
   let activeId = "";
   let displayMix = 0; // the mix actually applied; eased toward the goal each frame
   // Cap how strongly a region LUT can override the base grade. At a region centre the
@@ -94,8 +94,8 @@ export async function createAtmosphere(
         ? lerpProfile(DEFAULT_PROFILE, region, spatialT)
         : { fog: DEFAULT_PROFILE.fog, exposure: DEFAULT_PROFILE.exposure };
       fog.color.setHex(blended.fog.color);
-      fog.near = blended.fog.near;
       fog.far = Math.min(blended.fog.far, drawDistance) || baseFar;
+      fog.near = Math.min(blended.fog.near, fog.far - 1); // never let near meet/exceed far
       postfx.setExposure(blended.exposure);
     },
     dispose() {

@@ -8,11 +8,17 @@ const LIFE = 1.5;            // s a ripple lives
 const START_R = 0.35;        // starting ring radius (m)
 const GROW = 2.0;            // additional radius over its life (m)
 
-/** Min distance from (x,z) to the river polyline (same spline the water follows). */
+// Sample the SAME Catmull-Rom spline buildWater() renders, so the wading test matches the
+// visible ribbon on curves (the raw control-point polyline cuts inside the bends).
+const RIVER_PATH: [number, number][] = new THREE.CatmullRomCurve3(
+  RIVER_POINTS.map(([x, z]) => new THREE.Vector3(x, 0, z)),
+).getSpacedPoints(220).map((p) => [p.x, p.z] as [number, number]);
+
+/** Min distance from (x,z) to the sampled river spline (same spline the water follows). */
 function riverDist(x: number, z: number): number {
   let best = Infinity;
-  for (let i = 0; i < RIVER_POINTS.length - 1; i++) {
-    const [ax, az] = RIVER_POINTS[i], [bx, bz] = RIVER_POINTS[i + 1];
+  for (let i = 0; i < RIVER_PATH.length - 1; i++) {
+    const [ax, az] = RIVER_PATH[i], [bx, bz] = RIVER_PATH[i + 1];
     const dx = bx - ax, dz = bz - az;
     const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1)));
     best = Math.min(best, Math.hypot(x - (ax + dx * t), z - (az + dz * t)));

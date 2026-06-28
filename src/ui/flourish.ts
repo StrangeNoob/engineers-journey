@@ -6,7 +6,7 @@ export class Flourish {
   private title = document.createElement("div");
   private name = document.createElement("div");
   private live = document.createElement("div");
-  private reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  private reduced = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   private timer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
@@ -25,8 +25,10 @@ export class Flourish {
   }
 
   play(locale: string): void {
-    this.live.textContent = `Memory synchronized: ${locale}`;
     this.name.textContent = locale;
+    // clear first, then set on the next frame so an identical locale still re-announces
+    this.live.textContent = "";
+    requestAnimationFrame(() => { this.live.textContent = `Memory synchronized: ${locale}`; });
     if (this.timer) clearTimeout(this.timer);
     if (this.reduced) {
       this.el.style.transition = "none";

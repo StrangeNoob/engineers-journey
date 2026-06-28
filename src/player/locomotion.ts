@@ -27,8 +27,12 @@ export function integrateJump(
 ): JumpState {
   let { y, vy, grounded } = s;
   if (grounded && jumpPressed) { vy = jumpV; grounded = false; }
-  vy -= gravity * dt;
-  y += vy * dt;
+  // integrate only while airborne, with the half-gravity position term so a large-dt launch
+  // frame can't apply enough gravity to snap y straight back to the ground on the same tick
+  if (!grounded) {
+    y += vy * dt - 0.5 * gravity * dt * dt;
+    vy -= gravity * dt;
+  }
   if (y <= groundY) { y = groundY; vy = 0; grounded = true; }
   return { y, vy, grounded };
 }

@@ -47,7 +47,7 @@ describe("resolveCollisions", () => {
 });
 
 const clip = (name: string) => new THREE.AnimationClip(name, -1, []);
-const ROLES: Role[] = ["idle", "walk", "run", "wave", "listening"];
+const ROLES: Role[] = ["idle", "walk", "run", "wave", "listening", "jump"];
 
 describe("resolveClips", () => {
   it("maps each role to its own clip when all are present", () => {
@@ -55,12 +55,14 @@ describe("resolveClips", () => {
     const got = resolveClips(ROLES, map);
     for (const r of ROLES) expect(got[r].name).toBe(r);
   });
-  it("falls back to idle for any missing role", () => {
+  it("falls back to idle's data for any missing role, as a distinct clip", () => {
     const map = new Map([["idle", clip("idle")], ["walk", clip("walk")]]);
     const got = resolveClips(ROLES, map);
     expect(got.walk.name).toBe("walk");
-    expect(got.run.name).toBe("idle");       // fallback
-    expect(got.listening.name).toBe("idle"); // fallback
+    expect(got.run.name).toBe("idle");       // fallback uses idle's data
+    expect(got.run).not.toBe(got.idle);      // …but its own clip, so actions don't alias
+    expect(got.jump.name).toBe("idle");
+    expect(got.jump).not.toBe(got.run);
   });
   it("throws when idle is missing", () => {
     expect(() => resolveClips(ROLES, new Map([["walk", clip("walk")]]))).toThrow(/idle/i);

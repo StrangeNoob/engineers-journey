@@ -50,10 +50,15 @@ async function main() {
   // Replace any animations the base already carries with the renamed grafts.
   for (const a of base.getRoot().listAnimations()) a.dispose();
 
-  let grafted = 0;
+  const emittedRoles = new Set();
   for (const a of anims.getRoot().listAnimations()) {
     const role = CLIP_ROLE[a.getName()];
     if (!role) { console.warn(`skipping unmapped clip: ${a.getName()}`); continue; }
+    if (emittedRoles.has(role)) {
+      console.error(`Duplicate clip mapped to role "${role}" (from "${a.getName()}") — two source clips share a role in CLIP_ROLE.`);
+      process.exit(1);
+    }
+    emittedRoles.add(role);
     const out = base.createAnimation(role);
     for (const ch of a.listChannels()) {
       const tname = ch.getTargetNode()?.getName();
@@ -70,12 +75,12 @@ async function main() {
       out.addChannel(base.createAnimationChannel()
         .setTargetNode(target).setTargetPath(ch.getTargetPath()).setSampler(sampler));
     }
-    grafted++;
   }
 
-  const expected = Object.keys(CLIP_ROLE).length;
-  if (grafted !== expected) {
-    console.error(`Expected ${expected} mapped clips but grafted ${grafted} — source clip names may have changed; check CLIP_ROLE against animations.glb.`);
+  const expectedRoles = [...new Set(Object.values(CLIP_ROLE))];
+  const missingRoles = expectedRoles.filter((r) => !emittedRoles.has(r));
+  if (missingRoles.length) {
+    console.error(`Missing grafted roles: ${missingRoles.join(", ")} — source clip names may have changed; check CLIP_ROLE against animations.glb.`);
     process.exit(1);
   }
 

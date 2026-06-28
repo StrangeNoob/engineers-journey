@@ -41,21 +41,25 @@ export async function buildScrolls(
     if (!tale) continue;
     const model = (g.scene as unknown as THREE.Group).clone(true);
     toonify(model);
-    fitToHeight(model, 2.4);                              // ~2.4 m proclamation board (sets y to ground)
-    model.position.x = ps.scrollPos.x; model.position.z = ps.scrollPos.z;
-    model.rotation.y = Math.atan2(-ps.scrollPos.x, -ps.scrollPos.z); // face the world centre / road
-    model.traverse((o) => { o.userData.stopId = ps.id; });          // every child pickable → this stop
-    scene.add(model);
-    pickables.push(model);
+    fitToHeight(model, 2.4);                              // ~2.4 m proclamation board (scales the model, grounds its base)
+    // Parent the scaled scroll under an UNSCALED root so the title plane keeps its intended
+    // 1.35 m / 1.55 m world units instead of inheriting fitToHeight's scale factor.
+    const root = new THREE.Group();
+    root.position.set(ps.scrollPos.x, 0, ps.scrollPos.z);
+    root.rotation.y = Math.atan2(-ps.scrollPos.x, -ps.scrollPos.z); // face the world centre / road
+    root.add(model);
 
     // chapter title rendered on the scroll's face (double-sided so it reads from either approach)
     const plane = new THREE.Mesh(
       new THREE.PlaneGeometry(1.35, 1.35),
       new THREE.MeshBasicMaterial({ map: titleTexture(tale.locale, tale.org), transparent: true, depthWrite: false, side: THREE.DoubleSide }),
     );
-    plane.position.set(0, 1.55, 0.14);                   // upper-front of the board (local space)
-    plane.userData.stopId = ps.id;
-    model.add(plane);
+    plane.position.set(0, 1.55, 0.14);                   // upper-front of the board (unscaled root space)
+    root.add(plane);
+
+    root.traverse((o) => { o.userData.stopId = ps.id; }); // every child pickable (scroll + title) → this stop
+    scene.add(root);
+    pickables.push(root);
   }
   return { pickables };
 }

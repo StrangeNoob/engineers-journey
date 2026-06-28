@@ -19,7 +19,10 @@ export function resolveClips(
   const idle = clipsByName.get("idle");
   if (!idle) throw new Error("Gandalf model has no 'idle' animation clip");
   const out = {} as Record<Role, THREE.AnimationClip>;
-  for (const r of roles) out[r] = clipsByName.get(r) ?? idle;
+  // A missing non-idle role falls back to idle's motion, but as its OWN clone so the mixer
+  // gives it a distinct AnimationAction — otherwise two roles sharing the idle clip would
+  // alias to the same action and cross-talk when blended.
+  for (const r of roles) out[r] = clipsByName.get(r) ?? (r === "idle" ? idle : idle.clone());
   return out;
 }
 

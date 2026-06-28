@@ -44,7 +44,8 @@ import { createAtmosphere } from "./engine/atmosphere";
 /** Resolve a quality level: localStorage override → URL param → device tier default. */
 function resolveLevel(tier: ReturnType<typeof detectQuality>["tier"]): QualityLevel {
   const VALID: QualityLevel[] = ["high", "medium", "low"];
-  const stored = localStorage.getItem("qualityOverride") as QualityLevel | null;
+  let stored: QualityLevel | null = null;
+  try { stored = localStorage.getItem("qualityOverride") as QualityLevel | null; } catch { /* storage blocked (private mode) — fall through to URL/default */ }
   if (stored && VALID.includes(stored)) return stored;
   const param = new URLSearchParams(location.search).get("quality") as QualityLevel | null;
   if (param && VALID.includes(param)) return param;
@@ -184,7 +185,7 @@ let postfx: PostFX | null = null;
     onLevel: (l) => {
       // Reload is the intentional teardown: a full page load reclaims all GPU memory, so
       // environment.dispose()/postfx.dispose() are reserved for future in-place level switching.
-      localStorage.setItem("qualityOverride", l);
+      try { localStorage.setItem("qualityOverride", l); } catch { /* storage blocked — override just won't persist across the reload */ }
       location.reload();
     },
   });

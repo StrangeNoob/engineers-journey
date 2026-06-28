@@ -79,11 +79,12 @@ export function createTerrain(scene: THREE.Scene): THREE.Mesh {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  // One shared fade map for every patch (read-only texture; safe to reuse).
-  const alpha = radialAlphaMap();
+  // Each patch fades across its OWN falloff band: the solid core ends at the region radius,
+  // so the dissolve starts at radius/(radius+falloff) — different per region.
   for (const region of REGIONS) {
     if (!region.ground) continue;
-    scene.add(groundPatch(region.ground, region.center.x, region.center.z, region.radius + region.falloff, alpha));
+    const outer = region.radius + region.falloff;
+    scene.add(groundPatch(region.ground, region.center.x, region.center.z, outer, radialAlphaMap(region.radius / outer)));
   }
 
   // Snowline at the base of the distant mountain backdrops (ring at r340; see world/nature.ts).
