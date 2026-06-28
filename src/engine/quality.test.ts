@@ -19,19 +19,21 @@ describe("pickQualityLevel", () => {
 });
 
 describe("effectFlags", () => {
-  it("high enables the full stack", () => {
+  it("high enables the full stack (DoF + LUT excepted — off for production clarity)", () => {
     const f = effectFlags("high");
-    expect(f.ssao && f.dof && f.csm && f.lut && f.bloom && f.smaa).toBe(true);
+    expect(f.ssao && f.csm && f.bloom && f.smaa).toBe(true);
+    expect(f.dof).toBe(false);
+    expect(f.lut).toBe(false);
   });
-  it("medium drops dof + ssao but keeps lut/bloom/csm", () => {
+  it("medium drops dof + ssao but keeps bloom/csm", () => {
     const f = effectFlags("medium");
     expect(f.dof).toBe(false);
     expect(f.ssao).toBe(false);
-    expect(f.lut && f.bloom && f.csm).toBe(true);
+    expect(f.bloom && f.csm).toBe(true);
   });
   it("low strips expensive effects and csm", () => {
     const f = effectFlags("low");
     expect(f.dof || f.ssao || f.csm || f.chromaticAberration).toBe(false);
-    expect(f.bloom && f.smaa && f.lut).toBe(true);
+    expect(f.bloom && f.smaa).toBe(true);
   });
 });

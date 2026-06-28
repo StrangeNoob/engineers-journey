@@ -12,10 +12,11 @@ describe("buildEffectChain", () => {
       "ssao", "bloom", "dof", "tonemap", "lut", "vignette", "grain", "chromaticAberration", "smaa",
     ]);
   });
-  it("tonemap, lut, bloom, smaa are always enabled", () => {
+  it("tonemap, bloom, smaa always enabled; lut off (production clarity)", () => {
     for (const lvl of ["high", "medium", "low"] as const) {
       const on = enabled(buildEffectChain(effectFlags(lvl)));
-      expect(on).toEqual(expect.arrayContaining(["tonemap", "lut", "bloom", "smaa"]));
+      expect(on).toEqual(expect.arrayContaining(["tonemap", "bloom", "smaa"]));
+      expect(on).not.toContain("lut");
     }
   });
   it("low disables ssao, dof, chromaticAberration", () => {

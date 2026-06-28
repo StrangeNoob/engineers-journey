@@ -104,9 +104,9 @@ export function createPostFX(
   const make = (step: EffectStep) => {
     switch (step.id) {
       case "ssao": return new SSAOEffect(camera, normalPass!.texture, { samples: 8, radius: 0.25, intensity: 2.0, resolutionScale: 0.5 });
-      case "bloom": return new BloomEffect({ luminanceThreshold: 0.75, intensity: 0.6, mipmapBlur: true });
+      case "bloom": return new BloomEffect({ luminanceThreshold: 0.85, intensity: 0.3, mipmapBlur: true });
       case "dof": return dof;
-      case "tonemap": return new ToneMappingEffect({ mode: ToneMappingMode.AGX });
+      case "tonemap": return new ToneMappingEffect({ mode: ToneMappingMode.NEUTRAL });
       case "lut": {
         if (!lut) return null;
         // LUTCubeLoader yields a Data3DTexture; its image.width is the LUT size.
