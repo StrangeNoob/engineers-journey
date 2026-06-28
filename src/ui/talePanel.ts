@@ -22,6 +22,7 @@ export class TalePanel {
   private backdrop = document.createElement("div");
   private onClose?: () => void;
   private mobile = false;
+  private closeTimer?: number; // pending deferred finalize() from close(), so a quick reopen can cancel it
 
   constructor() {
     this.el.id = "tale";
@@ -35,6 +36,7 @@ export class TalePanel {
   }
 
   open(stop: Stop, onClose: () => void): void {
+    if (this.closeTimer !== undefined) { clearTimeout(this.closeTimer); this.closeTimer = undefined; } // cancel a pending close→finalize so it can't inert this fresh open
     this.onClose = onClose;
     this.mobile = isMobile();
     this.el.style.cssText = COMMON + (this.mobile ? MODAL : PANEL); // reset to the closed base each open
@@ -84,9 +86,10 @@ export class TalePanel {
     // Defer `inert` + onClose until the close animation finishes: isOpen drives StopManager's
     // movement freeze, so flipping it mid-fade would let the player walk while the panel is
     // still visible. (A timeout, not transitionend, so it always fires even with no transition.)
-    const finalize = () => { this.el.setAttribute("inert", ""); this.onClose?.(); this.onClose = undefined; };
+    const finalize = () => { this.closeTimer = undefined; this.el.setAttribute("inert", ""); this.onClose?.(); this.onClose = undefined; };
+    if (this.closeTimer !== undefined) clearTimeout(this.closeTimer); // coalesce repeated closes mid-animation
     if (REDUCED) finalize();
-    else setTimeout(finalize, this.mobile ? 320 : 560); // matches the CSS transition durations
+    else this.closeTimer = window.setTimeout(finalize, this.mobile ? 320 : 560); // matches the CSS transition durations
   }
 
   get isOpen(): boolean { return !this.el.hasAttribute("inert"); }

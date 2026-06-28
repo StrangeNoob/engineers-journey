@@ -120,7 +120,11 @@ let postfx: PostFX | null = null;
   renderer.domElement.addEventListener("pointerup", (e) => {
     if (map.isOpen || stops.isPanelOpen) return;
     if (Math.hypot(e.clientX - downX, e.clientY - downY) > 8) return; // a drag, not a tap
-    pickRay.setFromCamera(new THREE.Vector2((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1), cam.camera);
+    const rect = renderer.domElement.getBoundingClientRect(); // normalize against the canvas, not the window
+    pickRay.setFromCamera(
+      new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1),
+      cam.camera,
+    );
     const hit = pickRay.intersectObjects(scrolls.pickables, true)[0];
     if (!hit) return;
     let o: THREE.Object3D | null = hit.object;
