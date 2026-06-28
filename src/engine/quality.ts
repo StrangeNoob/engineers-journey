@@ -20,6 +20,8 @@ export function detectQuality(): Quality {
   const tier = pickTier(matchMedia("(pointer:coarse)").matches, navigator.hardwareConcurrency || 4);
   return tier === "mobile"
     ? { tier, pixelRatio: Math.min(devicePixelRatio, 1.6), drawDistance: 140, treeCount: 80, grassCount: 800, shadows: false }
+    // render at native retina (2.0): on a 2× display, anything below it is upscaled and softens the
+    // whole frame. DoF (a convolution pass) is now off, which buys back the GPU this costs.
     : { tier, pixelRatio: Math.min(devicePixelRatio, 2), drawDistance: 380, treeCount: 220, grassCount: 2600, shadows: true };
 }
 
@@ -48,13 +50,14 @@ export function effectFlags(level: QualityLevel): EffectFlags {
   const midUp = level !== "low";
   return {
     ssao: high,
-    dof: high,
+    dof: false, // full-frame haze on the third-person cam (focal plane sits in front of the visible scene); off until refocused
+
     chromaticAberration: high,
     grain: midUp,
     vignette: midUp,
     csm: midUp,
     bloom: true,
-    lut: true,
+    lut: false, // grade off — "production clarity": neutral tone-map, no golden-hour LUT cast
     smaa: true,
   };
 }

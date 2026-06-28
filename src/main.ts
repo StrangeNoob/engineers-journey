@@ -18,6 +18,8 @@ import { buildRoad, bridgeHeight } from "./world/road";
 import { buildWater } from "./world/water";
 import { scatterNature, cullTreesNearCamera } from "./world/nature";
 import { buildGrassField } from "./world/grassField";
+import { createSnow } from "./world/weather";
+import { createWaterRipples } from "./world/waterRipples";
 import { buildAmbient } from "./world/ambient";
 import { Gandalf, pickGait } from "./player/gandalf";
 import { FollowCamera } from "./player/followCamera";
@@ -34,12 +36,10 @@ import { MapOverlay } from "./ui/mapOverlay";
 import { createFade } from "./ui/fade";
 import { travelTarget } from "./world/mapProjection";
 import { STOP_PLACEMENTS } from "./data/world";
-import { buildScrollReveal } from "./world/scrollReveal";
+import { buildScrolls } from "./world/scrollReveal";
 import { AudioEngine, footstepDue } from "./audio/audioEngine";
 import { mountIntro } from "./ui/intro";
 import { createAtmosphere } from "./engine/atmosphere";
-import { buildViewpoint, viewpointHeight } from "./world/viewpoint";
-import { ViewpointTrigger } from "./systems/viewpoint";
 
 /** Resolve a quality level: localStorage override → URL param → device tier default. */
 function resolveLevel(tier: ReturnType<typeof detectQuality>["tier"]): QualityLevel {
@@ -56,6 +56,7 @@ const boot = showBoot();
 const quality = detectQuality();
 const level = resolveLevel(quality.tier);
 const flags = effectFlags(level);
+flags.grain = false; // film grain disabled (the LUT colour-grade stays — that was the good part)
 
 const renderer = createRenderer();
 renderer.setPixelRatio(quality.pixelRatio);
@@ -69,7 +70,6 @@ renderer.domElement.setAttribute("aria-label",
 
 const scene = createScene();
 createTerrain(scene);
-buildViewpoint(scene);
 
 const input = new Input();
 input.attach(renderer.domElement);
@@ -106,35 +106,41 @@ let postfx: PostFX | null = null;
 
   const landmarks = placeLandmarks(scene);
   landmarks.update(gandalf.root.position);
-  const scroll = await buildScrollReveal(scene);
+  const scrolls = await buildScrolls(scene, landmarks.stops, content);
   const stops = new StopManager(landmarks.stops, content, journal, (id) => {
     syncMeter.set((i) => journal.isVisited(i));
     flourish.play(content[id]?.locale ?? id);
-  }, { gandalf, scroll, camera: cam, audio });
+  }, { gandalf, camera: cam, audio });
+
+  // Tap/click a landmark's 3D scroll to open its tale — works on mobile (no E key needed).
+  // A tap is a pointerup close to where the pointerdown landed (not a look-drag).
+  const pickRay = new THREE.Raycaster();
+  let downX = 0, downY = 0;
+  renderer.domElement.addEventListener("pointerdown", (e) => { downX = e.clientX; downY = e.clientY; });
+  renderer.domElement.addEventListener("pointerup", (e) => {
+    if (map.isOpen || stops.isPanelOpen) return;
+    if (Math.hypot(e.clientX - downX, e.clientY - downY) > 8) return; // a drag, not a tap
+    const rect = renderer.domElement.getBoundingClientRect(); // normalize against the canvas, not the window
+    pickRay.setFromCamera(
+      new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1),
+      cam.camera,
+    );
+    const hit = pickRay.intersectObjects(scrolls.pickables, true)[0];
+    if (!hit) return;
+    let o: THREE.Object3D | null = hit.object;
+    while (o && !o.userData.stopId) o = o.parent;
+    if (o?.userData.stopId) stops.openById(o.userData.stopId as string);
+  });
 
   // one shared list of solid footprints; every builder appends to it as its assets
   // load, and Gandalf is pushed out of any he overlaps each frame.
   const colliders = [...landmarks.colliders];
   let grassWind: ((t: number) => void) | null = null;
+  let waterRipple: ((dt: number) => void) | null = null;
   let elapsed = 0;
 
-  // Compose the walkable ground surface: flat ground (0), bridge arch, and the viewpoint knoll.
-  const groundHeightAt = (x: number, z: number) => Math.max(0, bridgeHeight(x, z), viewpointHeight(x, z));
-
-  // Caption overlay shown during the summit reveal (reuses the intro/fade visual language).
-  const revealCaption = document.createElement("div");
-  revealCaption.style.cssText =
-    "position:fixed;left:50%;bottom:36px;transform:translateX(-50%);z-index:9;pointer-events:none;" +
-    "background:rgba(244,236,216,.92);border:1px solid #d8cba8;border-radius:14px;" +
-    "padding:11px 22px;font:15px/1.5 'Iowan Old Style',Georgia,serif;color:#2e2a22;" +
-    "opacity:0;transition:opacity .6s ease;white-space:nowrap;";
-  revealCaption.textContent = "The long road lies ahead — each step a chapter of the journey.";
-  document.body.appendChild(revealCaption);
-
-  const viewpoint = new ViewpointTrigger(() => {
-    cam.startReveal();
-    revealCaption.style.opacity = "1";
-  });
+  // Compose the walkable ground surface: flat ground (0) + the bridge arch.
+  const groundHeightAt = (x: number, z: number) => Math.max(0, bridgeHeight(x, z));
 
   const fade = createFade();
   const map = new MapOverlay(
@@ -159,7 +165,7 @@ let postfx: PostFX | null = null;
   // Cinematic environment (HDRI/IBL + CSM + fog) and the post-processing stack.
   const environment = await createEnvironment(renderer, scene, cam.camera, flags, quality.drawDistance);
 
-  // Resolution B: load the color-grade LUT; skip gracefully on failure.
+  // Load the base colour-grade LUT; skip gracefully on failure.
   let lut: THREE.Texture | null = null;
   try {
     lut = await new LUTCubeLoader().loadAsync("/assets/luts/golden-hour.cube");
@@ -170,6 +176,8 @@ let postfx: PostFX | null = null;
   configureRenderer(renderer, { exposure: 1.05, toneMapInRenderer: false });
   postfx = createPostFX(renderer, scene, cam.camera, flags, lut);
   const atmosphere = await createAtmosphere(scene, postfx, quality.drawDistance);
+  const snow = createSnow(scene); // falling snowfall, fades in within Isengard
+  const ripples = createWaterRipples(scene); // ring ripples while wading the river
 
   const overlay = mountDebugOverlay({
     level,
@@ -185,37 +193,30 @@ let postfx: PostFX | null = null;
   startLoop((dt) => {
     elapsed += dt;
     input.beginFrame();
-    const hudVisible = !map.isOpen && !stops.isPanelOpen && !cam.isRevealing;
+    const hudVisible = !map.isOpen && !stops.isPanelOpen;
     compass.setVisible(hudVisible);
     waypoints.setVisible(hudVisible);
     if (!map.isOpen) {
-      const revealing = cam.isRevealing;
-      // End the reveal on any movement or jump input
-      if (revealing && (input.state.move.forward !== 0 || input.state.move.right !== 0 || input.state.jump)) {
-        cam.endReveal();
-        revealCaption.style.opacity = "0";
-      }
-      if (!cam.isRevealing && revealCaption.style.opacity !== "0") revealCaption.style.opacity = "0";
-
-      // tale panel or reveal: stop walking, keep animating + camera easing
-      const frozen = stops.isPanelOpen || cam.isRevealing;
+      // tale panel: stop walking, keep animating + camera easing
+      const frozen = stops.isPanelOpen;
       const moveInput = frozen ? { ...input.state, move: { forward: 0, right: 0 }, run: false } : input.state;
       // Move the player FIRST, then point the camera at the updated position (avoids the
       // one-frame camera lag that caused screen jitter while walking).
       const speed = gandalf.update(dt, moveInput, cam.yawAngle, colliders, groundHeightAt);
       atmosphere.update(gandalf.root.position.x, gandalf.root.position.z, dt);
+      snow.update(gandalf.root.position.x, gandalf.root.position.z, dt);
       environment.update(gandalf.root.position.x, gandalf.root.position.z);
       cam.update(gandalf.root.position, input, dt, landmarks.obstacles);
       cullTreesNearCamera(cam.camera.position.x, cam.camera.position.z, 5);
       grassWind?.(elapsed);
-      scroll.update(dt);
+      waterRipple?.(dt);
+      ripples.update(gandalf.root.position.x, gandalf.root.position.z, gandalf.root.position.y, dt, speed);
       landmarks.update(gandalf.root.position);
       stops.update(gandalf.root.position, cam.camera, input);
       if (hudVisible) {
         compass.update(cam.yawAngle, gandalf.root.position.x, gandalf.root.position.z);
         waypoints.update(cam.camera, gandalf.root.position.x, gandalf.root.position.z, (id) => journal.isVisited(id));
       }
-      if (!frozen) viewpoint.update(gandalf.root.position.x, gandalf.root.position.z);
       if (!frozen) {
         footDist += speed * dt;
         if (footstepDue(footDist, pickGait(speed, input.state.run))) { audio.footstep(); footDist = 0; }
@@ -234,7 +235,7 @@ let postfx: PostFX | null = null;
   // take the others down or leave an unhandled rejection).
   const builders: [string, Promise<unknown>][] = [
     ["road", buildRoad(scene, colliders)],
-    ["water", buildWater(scene, colliders)],
+    ["water", buildWater(scene, colliders, quality).then((u) => { waterRipple = u; })],
     ["nature", scatterNature(scene, quality, colliders)],
     ["grass", buildGrassField(scene, quality).then((u) => { grassWind = u; })],
     ["ambient", buildAmbient(scene, colliders)],
