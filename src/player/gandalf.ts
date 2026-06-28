@@ -11,14 +11,15 @@ export type Gait = "idle" | "walk" | "run";
 
 export type Role = "idle" | "walk" | "run" | "wave" | "listening" | "jump";
 
-/** Pure: resolve each role to its same-named clip, else fall back to `idle`. Missing idle throws. */
-export function resolveClips(
-  roles: Role[],
+/** Pure: resolve each role to its same-named clip, else fall back to `idle`. Missing idle throws.
+ *  The return type covers exactly the roles passed in, so reading an unrequested role is a type error. */
+export function resolveClips<R extends Role>(
+  roles: readonly R[],
   clipsByName: Map<string, THREE.AnimationClip>,
-): Record<Role, THREE.AnimationClip> {
+): Record<R, THREE.AnimationClip> {
   const idle = clipsByName.get("idle");
   if (!idle) throw new Error("Gandalf model has no 'idle' animation clip");
-  const out = {} as Record<Role, THREE.AnimationClip>;
+  const out = {} as Record<R, THREE.AnimationClip>;
   // A missing non-idle role falls back to idle's motion, but as its OWN clone so the mixer
   // gives it a distinct AnimationAction — otherwise two roles sharing the idle clip would
   // alias to the same action and cross-talk when blended.
