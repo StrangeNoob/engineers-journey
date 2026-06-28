@@ -1,6 +1,18 @@
-// @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from "vitest";
 import { Journal } from "./journal";
+
+// Node 26's experimental localStorage global is unavailable without --localstorage-file,
+// and the jsdom env doesn't reliably expose one here — provide a minimal in-memory stub
+// so the Journal's persistence (localStorage) is testable independent of the runtime.
+const store = new Map<string, string>();
+(globalThis as typeof globalThis & { localStorage: Storage }).localStorage = {
+  getItem: (k: string) => store.get(k) ?? null,
+  setItem: (k: string, v: string) => void store.set(k, String(v)),
+  removeItem: (k: string) => void store.delete(k),
+  clear: () => store.clear(),
+  key: (i: number) => [...store.keys()][i] ?? null,
+  get length() { return store.size; },
+} as Storage;
 
 beforeEach(() => localStorage.clear());
 

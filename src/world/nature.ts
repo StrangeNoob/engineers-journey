@@ -14,9 +14,11 @@ function firstMesh(root: THREE.Object3D): THREE.Mesh | null {
   return found;
 }
 
-function toonOf(src: THREE.Mesh): THREE.MeshToonMaterial {
+function toonOf(src: THREE.Mesh, tint?: number): THREE.MeshToonMaterial {
   const mat = src.material as THREE.MeshStandardMaterial;
-  return new THREE.MeshToonMaterial({ map: mat.map ?? null, color: mat.color?.clone() ?? new THREE.Color(0x6f8147), gradientMap: ramp });
+  const base = mat.color?.clone() ?? new THREE.Color(0x6f8147);
+  if (tint !== undefined) base.multiply(new THREE.Color(tint));
+  return new THREE.MeshToonMaterial({ map: mat.map ?? null, color: base, gradientMap: ramp });
 }
 
 const seed = { s: 91 };
@@ -59,11 +61,11 @@ export function cullTreesNearCamera(cx: number, cz: number, r = 3): void {
   }
 }
 
-interface Collider { x: number; z: number; r: number; }
+interface Collider { x: number; z: number; r: number; low?: boolean; }
 
 async function instance(scene: THREE.Scene, name: string, count: number, fit: number,
   place: (i: number, d: THREE.Object3D) => boolean,
-  opts: { sink?: number; cullable?: boolean; collide?: { list: Collider[]; factor: number } } = {}): Promise<void> {
+  opts: { sink?: number; cullable?: boolean; tint?: number; collide?: { list: Collider[]; factor: number } } = {}): Promise<void> {
   const g = await loadGLTF(name);
   const src = firstMesh(g.scene);
   if (!src) return;
@@ -82,7 +84,7 @@ async function instance(scene: THREE.Scene, name: string, count: number, fit: nu
       if (p.getY(i) <= yCut) trunkR = Math.max(trunkR, Math.hypot(p.getX(i), p.getZ(i)));
     }
   }
-  const inst = new THREE.InstancedMesh(src.geometry, toonOf(src), count);
+  const inst = new THREE.InstancedMesh(src.geometry, toonOf(src, opts.tint), count);
   // only trees cast shadows; grass is too small to matter and the giant mountain
   // backdrops would smear huge dark shadows across the whole world.
   inst.castShadow = !(name.includes("grass") || name.includes("mountain"));
@@ -127,7 +129,7 @@ export async function scatterNature(scene: THREE.Scene, quality: Quality, collid
       d.position.set(x, 0, z); d.rotation.y = rnd() * 6.283;
       d.scale.setScalar(0.8 + rnd() * 0.7);
       return true;
-    }, { sink: 0.7, cullable: true, collide: { list: colliders, factor: 0.7 } }); // base in ground; solid trunk
+    }, { sink: 0.7, cullable: true, tint: 0x8fb45a, collide: { list: colliders, factor: 0.7 } }); // base in ground; solid trunk
   }
   // tall grass is its own billboard field (see world/grassField.ts) — replaces the old tufts.
   // distant mountain ring: an even circle of wide backdrop panels far enough out that they

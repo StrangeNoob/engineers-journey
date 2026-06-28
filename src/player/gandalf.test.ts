@@ -1,5 +1,6 @@
+import * as THREE from "three";
 import { describe, it, expect } from "vitest";
-import { cameraRelativeMove, pickGait, resolveCollisions, gaitWeights } from "./gandalf";
+import { cameraRelativeMove, pickGait, resolveCollisions, gaitWeights, resolveClips, type Role } from "./gandalf";
 
 describe("cameraRelativeMove", () => {
   it("forward with yaw 0 goes -Z", () => {
@@ -42,5 +43,45 @@ describe("resolveCollisions", () => {
   it("shoves a dead-centre point out instead of dividing by zero", () => {
     const p = resolveCollisions(0, 0, col, 0.5);
     expect(Math.hypot(p.x, p.z)).toBeCloseTo(5.5);
+  });
+});
+
+const clip = (name: string) => new THREE.AnimationClip(name, -1, []);
+const ROLES: Role[] = ["idle", "walk", "run", "wave", "listening", "jump"];
+
+describe("resolveClips", () => {
+  it("maps each role to its own clip when all are present", () => {
+    const map = new Map(ROLES.map((r) => [r, clip(r)]));
+    const got = resolveClips(ROLES, map);
+    for (const r of ROLES) expect(got[r].name).toBe(r);
+  });
+  it("falls back to idle's data for any missing role, as a distinct clip", () => {
+    const map = new Map([["idle", clip("idle")], ["walk", clip("walk")]]);
+    const got = resolveClips(ROLES, map);
+    expect(got.walk.name).toBe("walk");
+    expect(got.run.name).toBe("idle");       // fallback uses idle's data
+    expect(got.run).not.toBe(got.idle);      // …but its own clip, so actions don't alias
+    expect(got.jump.name).toBe("idle");
+    expect(got.jump).not.toBe(got.run);
+  });
+  it("throws when idle is missing", () => {
+    expect(() => resolveClips(ROLES, new Map([["walk", clip("walk")]]))).toThrow(/idle/i);
+  });
+});
+
+describe("resolveCollisions skipLow", () => {
+  const low = [{ x: 1, z: 0, r: 1, low: true }];
+  it("pushes out of a low collider on the ground", () => {
+    const p = resolveCollisions(0.5, 0, low, 0.5, false);
+    expect(p.x).toBeLessThan(0.5); // pushed away from the collider at x=1
+  });
+  it("ignores a low collider when skipLow (airborne)", () => {
+    const p = resolveCollisions(0.5, 0, low, 0.5, true);
+    expect(p).toEqual({ x: 0.5, z: 0 }); // unchanged — jumped over
+  });
+  it("still blocks a non-low collider when skipLow", () => {
+    const tall = [{ x: 1, z: 0, r: 1 }];
+    const p = resolveCollisions(0.5, 0, tall, 0.5, true);
+    expect(p.x).toBeLessThan(0.5);
   });
 });

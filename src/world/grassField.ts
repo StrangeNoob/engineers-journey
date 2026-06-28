@@ -2,6 +2,19 @@ import * as THREE from "three";
 import type { Quality } from "../engine/quality";
 import { inAClearing, roadDist } from "./nature";
 import { RIVER_POINTS } from "../data/world";
+import { REGIONS } from "../data/regions";
+
+// True if (x,z) sits on a region's solid paved/rock floor patch — grass shouldn't sprout
+// through cobbles/stone (Bree, Isengard, Minas). Skips only the solid core (radius); grass
+// resumes through the patch's falloff band so the edge still blends into the meadow.
+function onPavedPatch(x: number, z: number): boolean {
+  for (const region of REGIONS) {
+    if (!region.ground) continue;
+    const dx = x - region.center.x, dz = z - region.center.z;
+    if (dx * dx + dz * dz < region.radius * region.radius) return true;
+  }
+  return false;
+}
 
 // min distance from (x,z) to the river polyline — keep grass out of the water
 function riverDist(x: number, z: number): number {
@@ -44,7 +57,9 @@ function crossedCard(aspect: number): THREE.BufferGeometry {
 /** Unlit (texture carries its own shading) + alpha-cut + fog, with a wind-sway
  *  injected into the vertex stage so the tops drift and clumps wave out of phase. */
 function grassMaterial(tex: THREE.Texture, time: { value: number }): THREE.Material {
-  const mat = new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide });
+  // Light green tint nudges the texture's pale seed-head tops toward a lush meadow green.
+  // Kept light (near-bright) so values aren't crushed dark — a dark tint triggers bloom artifacts.
+  const mat = new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide, color: new THREE.Color(0x9ed27e) });
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = time;
     sh.vertexShader = "uniform float uTime;\n" + sh.vertexShader.replace(
@@ -64,10 +79,12 @@ function grassMaterial(tex: THREE.Texture, time: { value: number }): THREE.Mater
  *  Returns a per-frame updater that drives the wind animation. */
 export async function buildGrassField(scene: THREE.Scene, quality: Quality): Promise<(t: number) => void> {
   const loader = new THREE.TextureLoader();
-  const names = ["grass-1", "grass-2", "grass-4"];
+  // grass-card is the lush green tuft; the grass-1..4 set is wheat (golden tops) which
+  // reads orange across a dense field, so the meadow uses the green one.
+  const names = ["grass-card"];
   const texes = await Promise.all(names.map((n) => loader.loadAsync(`/assets/textures/${n}.png`)));
   const time = { value: 0 };
-  const total = quality.tier === "mobile" ? 6500 : 26000;
+  const total = quality.tier === "mobile" ? 5000 : 15000; // alpha-tested billboards = heavy overdraw; trimmed for FPS
   const per = Math.floor(total / names.length);
   const d = new THREE.Object3D();
 
@@ -82,7 +99,7 @@ export async function buildGrassField(scene: THREE.Scene, quality: Quality): Pro
       guard++;
       const a = rnd() * 6.283, r = Math.pow(rnd(), 0.8) * 120; // a touch denser toward the centre
       const x = Math.cos(a) * r, z = Math.sin(a) * r;
-      if (inAClearing(x, z, -2) || roadDist(x, z) < 2.8 || riverDist(x, z) < 2.5) continue; // hug the road edge, clear doorsteps + stream
+      if (inAClearing(x, z, -2) || roadDist(x, z) < 2.8 || riverDist(x, z) < 5.5 || onPavedPatch(x, z)) continue; // hug the road edge, clear doorsteps + the pebble riverbank + paved squares
       const h = 1.2 + rnd() * 0.7;                                 // ~1.2–1.9 m tall — waist/chest high
       d.position.set(x, 0, z);
       d.rotation.y = rnd() * 6.283;
